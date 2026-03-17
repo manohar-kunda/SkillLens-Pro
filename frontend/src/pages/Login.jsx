@@ -1,0 +1,195 @@
+import React, { useState, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  
+  const { login, logout, user } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      logout();
+    }
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <div style={styles.header}>
+            <img src="/logo.png" alt="Skilllens Logo" style={styles.logo} />
+            <h1 style={styles.title}>SkillLens</h1>
+            <p style={styles.subtitle}>Empowering your professional journey</p>
+        </div>
+        
+        {error && <div style={styles.error}>{error}</div>}
+        
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email Address</label>
+            <input 
+              type="email" 
+              placeholder="name@example.com"
+              style={styles.input} 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required 
+            />
+          </div>
+          
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
+            <input 
+              type="password" 
+              placeholder="••••••••"
+              style={styles.input} 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required 
+            />
+          </div>
+          
+          <button type="submit" style={styles.button}>
+            Sign In
+          </button>
+        </form>
+
+        <div style={styles.footer}>
+          Don't have an account? <Link to="/register" style={styles.link}>Create one</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const styles = {
+    container: {
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at top left, #6366f1, #4f46e5, #0b0f19)',
+        padding: '1.5rem',
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    card: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        padding: '3rem',
+        borderRadius: '2rem',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        width: '100%',
+        maxWidth: '460px',
+        textAlign: 'center',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        position: 'relative',
+        zIndex: 1,
+    },
+    header: {
+        marginBottom: '3rem',
+    },
+    logo: {
+        height: '70px',
+        marginBottom: '1.5rem',
+        filter: 'drop-shadow(0 0 15px rgba(99, 102, 241, 0.4))',
+    },
+    title: {
+        fontSize: '2.5rem',
+        fontWeight: '900',
+        margin: 0,
+        background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        letterSpacing: '-0.04em',
+    },
+    subtitle: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        marginTop: '0.75rem',
+        fontSize: '1rem',
+        fontWeight: '500',
+    },
+    form: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+    },
+    inputGroup: {
+        textAlign: 'left',
+    },
+    label: {
+        display: 'block',
+        fontSize: '0.75rem',
+        fontWeight: '800',
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginBottom: '0.75rem',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+    },
+    input: {
+        width: '100%',
+        padding: '1.1rem 1.5rem',
+        borderRadius: '1rem',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        fontSize: '1rem',
+        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        outline: 'none',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        color: 'white',
+    },
+    inputFocus: {
+        borderColor: '#6366f1',
+        boxShadow: '0 0 0 4px rgba(99, 102, 241, 0.2)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    button: {
+        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+        color: 'white',
+        padding: '1.1rem',
+        borderRadius: '1rem',
+        border: 'none',
+        fontSize: '1.1rem',
+        fontWeight: '700',
+        cursor: 'pointer',
+        marginTop: '1.5rem',
+        transition: 'all 0.3s',
+        boxShadow: '0 15px 30px -10px rgba(99, 102, 241, 0.6)',
+    },
+    error: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        color: '#f87171',
+        padding: '1rem',
+        borderRadius: '0.75rem',
+        marginBottom: '2rem',
+        fontSize: '0.9rem',
+        border: '1px solid rgba(239, 68, 68, 0.2)',
+        fontWeight: '600',
+    },
+    footer: {
+        marginTop: '2.5rem',
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: '0.95rem',
+    },
+    link: {
+        color: '#818cf8',
+        textDecoration: 'none',
+        fontWeight: '700',
+        marginLeft: '0.4rem',
+    }
+};
+
+export default Login;
