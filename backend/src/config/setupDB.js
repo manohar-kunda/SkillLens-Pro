@@ -8,9 +8,11 @@ async function setupDB() {
         // Create connection without selecting database first
         const connection = await mysql.createConnection({
             host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 3306,
             user: process.env.DB_USER || 'root',
             password: process.env.DB_PASSWORD || '',
-            multipleStatements: true
+            multipleStatements: true,
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : null
         });
 
         console.log('Connected to MySQL server.');
