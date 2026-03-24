@@ -4,11 +4,13 @@ const pool = require('../config/db');
 
 const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    let { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
+    
+    email = email.trim().toLowerCase();
 
     // Check if user already exists
     const [existingUsers] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -54,11 +56,13 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
+
+    email = email.trim().toLowerCase();
 
     // Find user
     const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
