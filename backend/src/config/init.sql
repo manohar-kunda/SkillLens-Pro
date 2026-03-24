@@ -115,3 +115,24 @@ CREATE TABLE IF NOT EXISTS user_results (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
 );
+
+-- 12. Resume Builder Info
+CREATE TABLE IF NOT EXISTS resume_builder_info (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    phone VARCHAR(50),
+    address VARCHAR(255),
+    summary TEXT,
+    experience JSON,
+    education JSON,
+    projects JSON,
+    skills JSON,
+    template_id VARCHAR(50) DEFAULT 'template1',
+    github_url VARCHAR(255),
+    linkedin_url VARCHAR(255),
+    portfolio_url VARCHAR(255),
+    certifications JSON,
+    languages JSON,
+    achievements JSON,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

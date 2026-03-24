@@ -230,8 +230,8 @@ def chat_with_ai(message: str, history: list = None) -> str:
         matches = []
         print(f"[DEBUG] Chat Fallback | search_msg: '{search_msg}'")
         for key, reply in STATIC_REPLIES.items():
-            # Match if key is in the message (case-insensitive)
-            if key.lower() in search_msg:
+            # Match if key is in the message as a distinct word (case-insensitive)
+            if re.search(rf'\b{re.escape(key.lower())}\b', search_msg):
                 print(f"[DEBUG] Match Found | key: '{key}'")
                 matches.append((len(key), reply))
         
