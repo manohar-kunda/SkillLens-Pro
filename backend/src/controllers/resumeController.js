@@ -22,9 +22,12 @@ const uploadResume = async (req, res) => {
 
         const resumeId = result.insertId;
 
-        // 2. Call the Python AI Service
+        // 2. Call the Python AI Service, ensuring we pass the original filename so Python accepts the .pdf extension
         const formData = new FormData();
-        formData.append('file', fs.createReadStream(filePath));
+        formData.append('file', fs.createReadStream(filePath), {
+            filename: req.file.originalname,
+            contentType: fileType
+        });
 
         try {
             const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/analyze`, formData, {
