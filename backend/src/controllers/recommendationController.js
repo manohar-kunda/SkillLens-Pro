@@ -1,7 +1,44 @@
 const pool = require('../config/db');
 const axios = require('axios');
+const axiosWithRetry = require('../utils/axiosWithRetry');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
+
+// Helper function for local scoring fallback
+const localScoreResume = (resumeText, jobDescription) => {
+    // Simple keyword extraction and overlap for fallback
+    const extractKeywords = (text) => {
+        // A very basic tokenizer and filter for common words
+        const commonWords = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'for', 'with', 'is', 'are', 'was', 'were', 'and', 'or', 'to', 'of', 'from', 'by', 'as', 'it', 'its', 'he', 'she', 'we', 'they', 'you', 'your', 'my', 'our', 'their', 'this', 'that', 'these', 'those', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'not', 'no', 'yes', 'but', 'so', 'if', 'then', 'than', 'when', 'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose', 'can', 'could', 'will', 'would', 'should', 'may', 'might', 'must', 'get', 'got', 'go', 'went', 'gone', 'make', 'made', 'making', 'see', 'saw', 'seen', 'say', 'said', 'saying', 'come', 'came', 'coming', 'take', 'took', 'taken', 'know', 'knew', 'known', 'think', 'thought', 'thinking', 'find', 'found', 'finding', 'give', 'gave', 'given', 'tell', 'told', 'telling', 'work', 'worked', 'working', 'use', 'used', 'using', 'also', 'much', 'many', 'more', 'most', 'less', 'least', 'only', 'even', 'just', 'about', 'above', 'across', 'after', 'against', 'along', 'among', 'around', 'before', 'behind', 'below', 'beneath', 'beside', 'between', 'beyond', 'during', 'except', 'inside', 'into', 'like', 'near', 'off', 'onto', 'outside', 'over', 'past', 'since', 'through', 'under', 'until', 'up', 'upon', 'within', 'without', 'per', 'via', 'etc', 'e.g.', 'i.e.', 'vs', 'etc', 'etcetera', 'etc.']);
+        return new Set(text.toLowerCase().split(/\W+/).filter(word => word.length > 2 && !commonWords.has(word)));
+    };
+
+    const resumeKeywords = extractKeywords(resumeText);
+    const jobKeywords = extractKeywords(jobDescription);
+
+    let matchedCount = 0;
+    const matchedSkills = [];
+    const missingSkills = [];
+
+    jobKeywords.forEach(jobKw => {
+        if (resumeKeywords.has(jobKw)) {
+            matchedCount++;
+            matchedSkills.push(jobKw);
+        } else {
+            missingSkills.push(jobKw);
+        }
+    });
+
+    // A very basic score based on keyword overlap
+    const score = jobKeywords.size > 0 ? (matchedCount / jobKeywords.size) * 100 : 0;
+
+    return {
+        score: parseFloat(score.toFixed(2)),
+        matched_skills: matchedSkills,
+        missing_skills: missingSkills,
+        explanation: 'Local fallback scoring: AI service was unavailable. Score based on simple keyword overlap.'
+    };
+};
 
 // @desc    Get learning recommendations for a user's missing skills for a specific job role
 // @route   GET /api/recommendations/:jobRoleId
@@ -191,26 +228,51 @@ const scoreResumeAgainstJob = async (req, res) => {
             `;
         }
 
-        // 4. Call AI Service for scoring
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/score-resume`, {
-            resume_text: resumeText,
-            job_description: jobDescription
-        }, { timeout: 20000 });
-
-        const aiData = aiResponse.data;
+        // 4. Call AI Service for scoring with retry; fall back to local scoring if unavailable
+        let scoreData;
+        try {
+            const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/score-resume`, {
+                resume_text: resumeText,
+                job_description: jobDescription
+            }, { timeout: 45000 }));
+            scoreData = aiResponse.data;
+        } catch (aiErr) {
+            console.warn('[Score] Python AI unavailable, using local overlap scorer:', aiErr.message);
+            // Local fallback: keyword overlap between resume text and job description
+            const resumeLower = resumeText.toLowerCase();
+            const jobWords = jobDescription.toLowerCase()
+                .split(/[\s,;.\-()]+/)
+                .filter(w => w.length > 3 && !['with','that','this','from','have','will','your','their','they'].includes(w));
+            
+            const uniqueJobWords = [...new Set(jobWords)];
+            const matches = uniqueJobWords.filter(w => resumeLower.includes(w));
+            const missing = uniqueJobWords.filter(w => !resumeLower.includes(w)).slice(0, 8);
+            const score = uniqueJobWords.length > 0 ? Math.min(95, Math.round((matches.length / uniqueJobWords.length) * 100)) : 30;
+            
+            scoreData = {
+                score,
+                matches: matches.slice(0, 12),
+                missing,
+                suggestions: score >= 70
+                    ? ['Great alignment with this role\'s requirements!']
+                    : score >= 40
+                        ? ['Consider adding more keywords from the job description to your resume.']
+                        : ['Your resume may need significant additions — study the job role closely and add relevant skills.']
+            };
+        }
 
         res.status(200).json({
             message: 'Resume scored successfully',
             jobTitle: jobTitle,
-            score: aiData.score || 0,
-            matches: aiData.matches || [],
-            missing: aiData.missing || [],
-            suggestions: aiData.suggestions || []
+            score: scoreData.score || 0,
+            matches: scoreData.matches || [],
+            missing: scoreData.missing || [],
+            suggestions: scoreData.suggestions || []
         });
 
     } catch (error) {
         console.error('Resume Scoring Error:', error.response?.data || error.message);
-        res.status(500).json({ message: 'Server error during resume scoring' });
+        res.status(500).json({ message: 'Server error during resume scoring: ' + error.message });
     }
 };
 
