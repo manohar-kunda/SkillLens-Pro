@@ -22,9 +22,12 @@ const uploadResume = async (req, res) => {
 
         const resumeId = result.insertId;
 
-        // 2. Call the Python AI Service, ensuring we pass the original filename so Python accepts the .pdf extension
+        // 2. Call the Python AI Service
+        // Read file into a Buffer first to avoid "stream has been aborted" errors
+        // on slow AI service cold-starts (Render free tier).
+        const fileBuffer = fs.readFileSync(filePath);
         const formData = new FormData();
-        formData.append('file', fs.createReadStream(filePath), {
+        formData.append('file', fileBuffer, {
             filename: req.file.originalname,
             contentType: fileType
         });
@@ -34,6 +37,9 @@ const uploadResume = async (req, res) => {
                 headers: {
                     ...formData.getHeaders(),
                 },
+                timeout: 60000, // 60-second timeout to allow AI service cold-start
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
             });
 
             const parsedData = aiResponse.data.data;
