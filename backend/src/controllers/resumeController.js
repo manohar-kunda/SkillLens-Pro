@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const axios = require('axios');
 const axiosWithRetry = require('../utils/axiosWithRetry');
+const { analyzeResumeLocally } = require('../utils/localAnalyzer');
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 const FormData = require('form-data');
 const fs = require('fs');
@@ -20,81 +21,77 @@ const uploadResume = async (req, res) => {
             'INSERT INTO resumes (user_id, file_path, file_type) VALUES (?, ?, ?)',
             [userId, filePath, fileType]
         );
-
         const resumeId = result.insertId;
 
-        // 2. Call the Python AI Service
-        // Read file into a Buffer first to avoid "stream has been aborted" errors
-        // on slow AI service cold-starts (Render free tier).
+        // 2. Read file into Buffer - prevents "stream aborted" on slow network transfers
         const fileBuffer = fs.readFileSync(filePath);
-        const formData = new FormData();
-        formData.append('file', fileBuffer, {
-            filename: req.file.originalname,
-            contentType: fileType
-        });
 
+        // 3. Try Python AI Service first, fall back to local analyzer if unavailable
+        let parsedData;
         try {
+            const formData = new FormData();
+            formData.append('file', fileBuffer, {
+                filename: req.file.originalname,
+                contentType: fileType
+            });
+
             const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/analyze`, formData, {
-                headers: {
-                    ...formData.getHeaders(),
-                },
-                timeout: 60000,
+                headers: { ...formData.getHeaders() },
+                timeout: 45000,
                 maxContentLength: Infinity,
                 maxBodyLength: Infinity,
             }));
 
-            const parsedData = aiResponse.data.data;
-            const score = parsedData.evaluation ? parsedData.evaluation.score : 0;
-            
-            // 3. Update the resume record with the parsed data
-            await pool.query(
-                'UPDATE resumes SET parsed_data = ?, score = ? WHERE id = ?',
-                [JSON.stringify(parsedData), score, resumeId]
-            );
-
-            // 4. Clear old extracted skills from user_skills table so this new resume is the source of truth
-            await pool.query('DELETE FROM user_skills WHERE user_id = ?', [userId]);
-
-            // 5. Save freshly extracted skills to user_skills table
-            if (parsedData.skills_extracted && parsedData.skills_extracted.length > 0) {
-                for (const skillName of parsedData.skills_extracted) {
-                    // Find or create skill
-                    let [skills] = await pool.query('SELECT id FROM skills WHERE name = ?', [skillName]);
-                    let skillId;
-                    
-                    if (skills.length === 0) {
-                        const [newSkill] = await pool.query('INSERT INTO skills (name) VALUES (?)', [skillName]);
-                        skillId = newSkill.insertId;
-                    } else {
-                        skillId = skills[0].id;
-                    }
-
-                    // Insert into user_skills (ignore if already exists due to composite primary key)
-                    await pool.query(
-                        'INSERT IGNORE INTO user_skills (user_id, skill_id, proficiency_level, source_resume_id) VALUES (?, ?, ?, ?)',
-                        [userId, skillId, 'beginner', resumeId]
-                    );
-                }
-            }
-
-            res.status(201).json({
-                message: 'Resume uploaded and analyzed successfully',
-                resumeId,
-                score,
-                analysis: parsedData.evaluation
-            });
-
+            parsedData = aiResponse.data.data;
+            console.log('[Resume] Analyzed via Python AI Service');
         } catch (aiError) {
-            console.error('AI Service Error:', aiError.response ? aiError.response.data : aiError.message);
-            const detailMsg = aiError.response?.data?.detail 
-                ? (typeof aiError.response.data.detail === 'string' ? aiError.response.data.detail : JSON.stringify(aiError.response.data.detail))
-                : aiError.message;
-            res.status(500).json({ message: `AI Engine Error: ${detailMsg}`, resumeId });
+            // Python service unavailable — use local Node.js analyzer as fallback
+            console.warn('[Resume] Python AI Service unavailable, using local fallback:', aiError.message);
+            parsedData = await analyzeResumeLocally(fileBuffer, req.file.originalname);
         }
+
+        const score = parsedData.evaluation ? parsedData.evaluation.score : 0;
+
+        // 4. Update the resume record with the parsed data
+        await pool.query(
+            'UPDATE resumes SET parsed_data = ?, score = ? WHERE id = ?',
+            [JSON.stringify(parsedData), score, resumeId]
+        );
+
+        // 5. Clear old extracted skills from user_skills table
+        await pool.query('DELETE FROM user_skills WHERE user_id = ?', [userId]);
+
+        // 6. Save freshly extracted skills to user_skills table
+        if (parsedData.skills_extracted && parsedData.skills_extracted.length > 0) {
+            for (const skillName of parsedData.skills_extracted) {
+                let [skills] = await pool.query('SELECT id FROM skills WHERE name = ?', [skillName]);
+                let skillId;
+
+                if (skills.length === 0) {
+                    const [newSkill] = await pool.query('INSERT INTO skills (name) VALUES (?)', [skillName]);
+                    skillId = newSkill.insertId;
+                } else {
+                    skillId = skills[0].id;
+                }
+
+                await pool.query(
+                    'INSERT IGNORE INTO user_skills (user_id, skill_id, proficiency_level, source_resume_id) VALUES (?, ?, ?, ?)',
+                    [userId, skillId, 'beginner', resumeId]
+                );
+            }
+        }
+
+        res.status(201).json({
+            message: 'Resume uploaded and analyzed successfully',
+            resumeId,
+            score,
+            analysis: parsedData.evaluation,
+            source: parsedData.source || 'ai_service'
+        });
 
     } catch (error) {
         console.error('Resume Upload Error:', error);
-        res.status(500).json({ message: 'Server error processing file upload' });
+        res.status(500).json({ message: 'Server error processing file upload: ' + error.message });
     }
 };
 
