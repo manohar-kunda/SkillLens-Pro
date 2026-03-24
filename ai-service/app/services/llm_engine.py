@@ -229,9 +229,17 @@ def chat_with_ai(message: str, history: list = None) -> str:
         # 1. Try Keyword Matching
         matches = []
         print(f"[DEBUG] Chat Fallback | search_msg: '{search_msg}'")
+        
+        # Check if they are asking about a roadmap role
+        from app.services.static_kb import STATIC_ROADMAPS
+        for role_key, role_data in STATIC_ROADMAPS.items():
+            if role_key in search_msg:
+                role_name = role_data.get('role', role_key.title())
+                matches.append((len(role_key) * 2, f"It looks like you're exploring the **{role_name}** path! 🚀\n\nTo get the most value, I recommend navigating to the **Career Discovery** section on your dashboard and searching for '{role_name}'. I will generate a comprehensive, 5-step interactive learning roadmap specifically tailored to that role!"))
+
         for key, reply in STATIC_REPLIES.items():
-            # Match if key is in the message as a distinct word (case-insensitive)
-            if re.search(rf'\b{re.escape(key.lower())}\b', search_msg):
+            # Match if key is in the message as a distinct word (case-insensitive) or partial (javaa -> java)
+            if key.lower() in search_msg:
                 print(f"[DEBUG] Match Found | key: '{key}'")
                 matches.append((len(key), reply))
         
@@ -239,12 +247,12 @@ def chat_with_ai(message: str, history: list = None) -> str:
             matches.sort(key=lambda x: x[0], reverse=True)
             return f"**[Mentorship Mode]** {matches[0][1]}"
                 
-        # 2. General Helpful Fallback (instead of generic "overwhelmed")
+        # 2. Professional System Fallbacks
         fallbacks = [
-            "I'm currently in **Mentorship Mode** due to high traffic. While my full chat is limited, I can still help! Try asking about 'React', 'Node.js', 'Resume tips', or checkout the **Career Discovery** tab for full roadmaps.",
-            "My AI brain is a bit busy right now! **Pro Tip:** When building your portfolio, focus on 2 high-quality projects rather than 10 small ones. Need a roadmap? Use the search bar in the dashboard!",
-            "I'm focusing my energy on roadmap generation right now! To get started, try searching for 'Backend Developer' or 'Data Scientist' in the main dashboard. I'll be back to full chat soon!",
-            "High activity detected! Here's a quick career tip: **Networking** is often more effective than cold-applying. Check out the 'Mock Interview' section while I'm restoring full chat!"
+            "SkillLens AI is currently experiencing high demand. While live chat generation is paused to prioritize resume analysis, I highly recommend exploring the **Career Discovery** tool horizontally across your dashboard to generate robust learning roadmaps.",
+            "Live chat is temporarily operating in Offline Mode to preserve server resources. **Pro Tip:** Quality over quantity—focusing on building 2 highly polished GitHub projects often yields better interview conversion rates than 10 basic tutorials.",
+            "Our servers are currently prioritizing roadmap generation and document processing. Feel free to use the main dashboard tools, or try asking me about fundamental topics like 'Java', 'React', 'Full Stack', or 'Machine Learning'.",
+            "SkillLens AI is in High-Traffic Offline Mode. To maximize your chances in the tech industry, remember that consistent networking on LinkedIn and targeted resume tailoring are your best assets. Check out the **Mock Interview** section!"
         ]
         import random
         return f"**[Mentorship Mode]** {random.choice(fallbacks)}"
