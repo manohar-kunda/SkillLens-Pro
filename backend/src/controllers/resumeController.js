@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const axios = require('axios');
+const axiosWithRetry = require('../utils/axiosWithRetry');
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 const FormData = require('form-data');
 const fs = require('fs');
@@ -33,14 +34,14 @@ const uploadResume = async (req, res) => {
         });
 
         try {
-            const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/analyze`, formData, {
+            const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/analyze`, formData, {
                 headers: {
                     ...formData.getHeaders(),
                 },
-                timeout: 60000, // 60-second timeout to allow AI service cold-start
+                timeout: 60000,
                 maxContentLength: Infinity,
                 maxBodyLength: Infinity,
-            });
+            }));
 
             const parsedData = aiResponse.data.data;
             const score = parsedData.evaluation ? parsedData.evaluation.score : 0;

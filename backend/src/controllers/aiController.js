@@ -1,4 +1,5 @@
 const axios = require("axios");
+const axiosWithRetry = require('../utils/axiosWithRetry');
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 
 exports.chatWithAI = async (req, res) => {
@@ -9,10 +10,10 @@ exports.chatWithAI = async (req, res) => {
             return res.status(500).json({ error: "Gemini API Key is not configured in the backend." });
         }
 
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/chat`, {
+        const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/chat`, {
             message,
             history
-        });
+        }, { timeout: 60000 }));
 
         res.json({ reply: aiResponse.data.reply });
     } catch (err) {
