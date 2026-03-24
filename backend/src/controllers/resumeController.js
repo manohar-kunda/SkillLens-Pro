@@ -79,7 +79,10 @@ const uploadResume = async (req, res) => {
 
         } catch (aiError) {
             console.error('AI Service Error:', aiError.response ? aiError.response.data : aiError.message);
-            res.status(500).json({ message: 'Resume uploaded, but AI analysis failed.', resumeId });
+            const detailMsg = aiError.response?.data?.detail 
+                ? (typeof aiError.response.data.detail === 'string' ? aiError.response.data.detail : JSON.stringify(aiError.response.data.detail))
+                : aiError.message;
+            res.status(500).json({ message: `AI Engine Error: ${detailMsg}`, resumeId });
         }
 
     } catch (error) {
