@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS resumes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     file_path VARCHAR(255) NOT NULL,
-    file_type VARCHAR(50) NOT NULL,
+    file_type VARCHAR(255) NOT NULL,
     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     parsed_data JSON, -- Stores raw extracted text or NLP JSON output
     score INT DEFAULT 0, -- Overall AI computed score
