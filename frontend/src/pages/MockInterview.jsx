@@ -116,7 +116,7 @@ const MockInterview = () => {
              Ready to validate your proficiency? Choose a difficulty to begin the AI-driven assessment.
            </p>
            
-           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1.5rem' }}>
              <button 
                 className="btn" 
                 style={{ background: 'var(--bg-main)', color: 'var(--secondary)', border: '2px solid rgba(16, 185, 129, 0.2)', padding: '1.5rem', fontSize: '1.1rem' }} 
