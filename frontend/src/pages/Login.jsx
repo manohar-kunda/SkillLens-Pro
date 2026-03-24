@@ -1,10 +1,12 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   
   const { login, logout, user } = useContext(AuthContext);
@@ -52,14 +54,28 @@ const Login = () => {
           
           <div style={styles.inputGroup}>
             <label style={styles.label}>Password</label>
-            <input 
-              type="password" 
-              placeholder="••••••••"
-              style={styles.input} 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-            />
+            <div style={styles.passwordWrapper}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••"
+                style={{...styles.input, paddingRight: '2.5rem'}} 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.toggleButton}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeSlashIcon style={styles.icon} />
+                ) : (
+                  <EyeIcon style={styles.icon} />
+                )}
+              </button>
+            </div>
           </div>
           
           <button type="submit" style={styles.button}>
@@ -151,10 +167,25 @@ const styles = {
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         color: 'white',
     },
-    inputFocus: {
-        borderColor: '#6366f1',
-        boxShadow: '0 0 0 4px rgba(99, 102, 241, 0.2)',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    passwordWrapper: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    toggleButton: {
+        position: 'absolute',
+        right: '1rem',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'rgba(255, 255, 255, 0.5)',
+        display: 'flex',
+        padding: 0,
+        transition: 'color 0.2s',
+    },
+    icon: {
+        width: '1.25rem',
+        height: '1.25rem',
     },
     button: {
         background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
