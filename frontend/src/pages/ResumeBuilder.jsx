@@ -295,7 +295,6 @@ const ResumeBuilder = () => {
                                 onClick={() => setFormData({ ...formData, template_id: id })}
                                 style={{
                                     padding: '0.5rem 1rem',
-                                    border: 'none',
                                     borderRadius: '2rem',
                                     background: formData.template_id === id ? 'var(--primary)' : 'var(--bg-card)',
                                     cursor: 'pointer',
