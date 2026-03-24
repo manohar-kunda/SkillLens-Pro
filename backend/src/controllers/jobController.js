@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const axios = require('axios');
+const { findStaticRoadmap, getStaticSuggestions } = require('../utils/staticRoles');
 
 // Intelligent Memory Cache System
 const roadmapCache = new Map(); // Key: roleName, Value: roadmapData
@@ -176,14 +177,15 @@ const analyzeCustomRole = async (req, res) => {
             console.error('Parallel Discovery Error:', err.message);
         }
 
-        // 4. FINAL FALLBACK: Only if AI and Wiki extraction failed
+        // 4. FINAL FALLBACK: Use static role KB if AI and Wiki extraction failed
         if (extractedSkills.length === 0) {
-            const stopWords = ['developer', 'engineer', 'manager', 'specialist', 'analyst', 'senior', 'junior', 'lead', 'full', 'stack'];
-            extractedSkills = formattedRole.toLowerCase().split(' ')
-                .filter(word => !stopWords.includes(word) && word.length > 2);
-            
-            if (extractedSkills.length === 0) {
-                extractedSkills = ['Technical Architecture', 'Problem Solving', 'System Design', 'Core Infrastructure'];
+            const staticRole = findStaticRoadmap(formattedRole);
+            if (staticRole) {
+                hierarchicalRoadmap = staticRole;
+                extractedSkills = staticRole.roadmap.flatMap(r => r.skills || []);
+                console.log(`[Roadmap] Using static KB for: ${formattedRole}`);
+            } else {
+                extractedSkills = ['Technical Architecture', 'Problem Solving', 'System Design', 'Core Infrastructure', 'Version Control', 'APIs', 'Databases'];
             }
         }
 
@@ -395,7 +397,9 @@ const getJobSuggestions = async (req, res) => {
         res.json({ suggestions });
     } catch (error) {
         console.error('Job Suggestions Error:', error.message);
-        res.json({ suggestions: [] });
+        // Fallback to static role suggestions when Python AI is unavailable
+        const staticSuggestions = getStaticSuggestions(query);
+        res.json({ suggestions: staticSuggestions });
     }
 };
 
