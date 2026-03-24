@@ -884,3 +884,22 @@ body.mobile-menu-open .resume-zoom-controls {
 .confetti.p2 { background-color: var(--confetti-2); }
 .confetti.p3 { background-color: var(--confetti-3); }
 .confetti.p4 { background-color: var(--confetti-4); }
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 600px) {
+  .hide-text-mobile {
+    display: none !important;
+  }
+  
+  .responsive-icon-btn {
+    padding: 0 1rem !important;
+    min-width: 48px;
+    height: 48px;
+  }
+
+  .stats-container {
+    gap: 1.5rem !important;
+    justify-content: center;
+  }
+}
+

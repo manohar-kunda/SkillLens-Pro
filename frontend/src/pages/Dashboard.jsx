@@ -110,11 +110,13 @@ const Dashboard = () => {
     }
   };
 
-  const handleCustomJobSearch = async () => {
-    if (!customJob.trim()) return alert('Please enter a job role to search for.');
+  const handleCustomJobSearch = async (overrideJob) => {
+    const jobToSearch = typeof overrideJob === 'string' ? overrideJob : customJob;
+    if (!jobToSearch.trim()) return alert('Please enter a job role to search for.');
     try {
-      const roadmapResponse = await jobService.analyzeCustomRole(customJob);
+      const roadmapResponse = await jobService.analyzeCustomRole(jobToSearch);
       setGapResult(roadmapResponse);
+      setShowSuggestions(false);
     } catch (err) {
       alert('Error generating custom learning roadmap');
     }
@@ -368,11 +370,11 @@ const Dashboard = () => {
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
                 <button 
-                  className="btn btn-primary" 
+                  className="btn btn-primary responsive-icon-btn" 
                   onClick={handleCustomJobSearch}
-                  style={{ width: '8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                  style={{ width: 'auto', minWidth: '3.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0 1.25rem' }}
                 >
-                  <MagnifyingGlassIcon style={{ width: '1.25rem' }} /> Find
+                  <MagnifyingGlassIcon style={{ width: '1.25rem' }} /> <span className="hide-text-mobile">Find</span>
                 </button>
               </div>
               {showSuggestions && suggestions.length > 0 && (
@@ -385,7 +387,7 @@ const Dashboard = () => {
                   {suggestions.map((s, idx) => (
                     <div 
                       key={idx} 
-                      onClick={() => { setCustomJob(s); handleCustomJobSearch(); }} 
+                      onClick={() => { setCustomJob(s); handleCustomJobSearch(s); }} 
                       style={{ 
                         padding: '1rem 1.5rem', cursor: 'pointer', borderBottom: '1px solid var(--border-light)',
                         transition: 'all 0.2s', fontWeight: '600', color: 'var(--text-main)',
@@ -419,11 +421,11 @@ const Dashboard = () => {
                   color: 'var(--secondary)' 
                 }}>{gapResult.matchPercentage}%</span>
               </div>
-              <div style={{ display: 'flex', gap: '3rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ width: '180px', height: '180px' }}>
+              <div className="stats-container" style={{ display: 'flex', gap: '3rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div style={{ width: '180px', height: '180px', flexShrink: 0 }}>
                   {pieData && <Pie data={pieData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } } }} />}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: '150px', textAlign: 'center' }}>
                   <div style={{ marginBottom: '1rem' }}>
                     <h4 style={{ color: 'var(--secondary)', margin: 0 }}>Matched Skills</h4>
                     <p style={{ fontSize: '1.5rem', fontWeight: '800' }}>{gapResult.matchingSkills.length}</p>
