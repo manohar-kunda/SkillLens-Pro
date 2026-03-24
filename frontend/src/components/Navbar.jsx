@@ -74,7 +74,7 @@ const Navbar = () => {
                     <Link to="/quizzes" className="nav-link">Quizzes</Link>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="nav-actions">
                     <div className="nav-profile-section" ref={dropdownRef}>
                         <div className="nav-profile-trigger" onClick={() => setDropdownOpen(!dropdownOpen)}>
                             <span className="nav-username">{user.name}</span>

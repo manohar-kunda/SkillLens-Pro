@@ -885,6 +885,12 @@ body.mobile-menu-open .resume-zoom-controls {
 .confetti.p3 { background-color: var(--confetti-3); }
 .confetti.p4 { background-color: var(--confetti-4); }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* Mobile Responsiveness Improvements */
 @media (max-width: 600px) {
   .hide-text-mobile {
@@ -900,6 +906,19 @@ body.mobile-menu-open .resume-zoom-controls {
   .stats-container {
     gap: 1.5rem !important;
     justify-content: center;
+  }
+
+  .nav-actions {
+    gap: 0.5rem;
+  }
+  .nav-container {
+    padding: 0 1rem !important;
+  }
+  .nav-profile-trigger {
+    padding: 0.25rem 0.5rem !important;
+  }
+  .nav-logo-text {
+    font-size: 1.25rem !important;
   }
 }
 
