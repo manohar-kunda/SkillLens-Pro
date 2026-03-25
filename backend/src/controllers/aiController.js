@@ -15,26 +15,31 @@ Keep responses concise, professional, and actionable. Focus on career and techno
 If asked something completely unrelated to careers or technology, politely redirect to career topics.`;
 
 /**
- * Call Gemini API directly from Node.js as a fallback.
+ * Call Groq API directly from Node.js as a fallback.
  * Used when the Python AI microservice is unavailable (e.g., Render cold-start 502).
  */
-const callGeminiDirect = async (message, history = []) => {
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        systemInstruction: SYSTEM_PROMPT,
+const callGroqDirect = async (message, history = []) => {
+    const Groq = require('groq-sdk');
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    // Convert history to Groq's format
+    const formattedHistory = (history || []).map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content || msg.text || ''
+    })).filter(h => h.content);
+
+    const chatCompletion = await groq.chat.completions.create({
+        messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...formattedHistory,
+            { role: 'user', content: message }
+        ],
+        model: 'llama3-70b-8192',
+        temperature: 0.6,
+        max_tokens: 1024,
     });
 
-    // Convert history to Gemini's format
-    const formattedHistory = (history || []).map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content || msg.text || '' }]
-    })).filter(h => h.parts[0].text);
-
-    const chat = model.startChat({ history: formattedHistory });
-    const result = await chat.sendMessage(message);
-    return result.response.text();
+    return chatCompletion.choices[0].message.content;
 };
 
 exports.chatWithAI = async (req, res) => {
@@ -53,18 +58,18 @@ exports.chatWithAI = async (req, res) => {
 
         return res.json({ reply: aiResponse.data.reply });
     } catch (pythonErr) {
-        console.warn('[AI Chat] Python service unavailable, falling back to direct Gemini call:', pythonErr.message);
+        console.warn('[AI Chat] Python service unavailable, falling back to direct Groq call:', pythonErr.message);
     }
 
-    // --- TIER 2: Call Gemini API directly from Node.js ---
+    // --- TIER 2: Call Groq API directly from Node.js ---
     try {
-        if (!process.env.GEMINI_API_KEY) {
-            throw new Error('GEMINI_API_KEY not configured in backend.');
+        if (!process.env.GROQ_API_KEY) {
+            throw new Error('GROQ_API_KEY not configured in backend.');
         }
-        const reply = await callGeminiDirect(message, history);
+        const reply = await callGroqDirect(message, history);
         return res.json({ reply });
-    } catch (geminiErr) {
-        console.error('[AI Chat] Direct Gemini call also failed:', geminiErr.message);
+    } catch (groqErr) {
+        console.error('[AI Chat] Direct Groq call also failed:', groqErr.message);
     }
 
     // --- TIER 3: Static professional fallback ---

@@ -1,43 +1,51 @@
 import os
 import json
 import re
-from google import genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini Client
-api_key = os.getenv("GEMINI_API_KEY")
+# Configure Groq Client
+api_key = os.getenv("GROQ_API_KEY")
 client = None
 if api_key:
-    client = genai.Client(api_key=api_key)
+    client = Groq(api_key=api_key)
 
 MODEL_FALLBACKS = [
-    'gemini-flash-lite-latest',
-    'gemini-2.0-flash-lite',
-    'gemini-2.0-flash',
-    'gemini-flash-latest'
+    'llama3-70b-8192',
+    'llama3-8b-8192',
+    'mixtral-8x7b-32768'
 ]
 
 def safe_generate_content(prompt: str, response_mime_type: str = 'application/json'):
     last_error = ""
     for model_name in MODEL_FALLBACKS:
         try:
-            print(f"[AI] Attempting generation with {model_name}...")
-            response = client.models.generate_content(
+            print(f"[AI] Attempting generation with Groq {model_name}...")
+            
+            response_format = {"type": "json_object"} if response_mime_type == 'application/json' else None
+            system_prompt = "You are a strict data-generator. You MUST return ONLY valid JSON format. Do not write markdown blocks like ```json. Output raw JSON ONLY." if response_format else "You are a helpful expert assistant."
+            
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
                 model=model_name,
-                contents=prompt,
-                config={'response_mime_type': response_mime_type}
+                response_format=response_format,
+                temperature=0.6,
+                max_tokens=2048
             )
-            return response.text
+            return chat_completion.choices[0].message.content
         except Exception as e:
             last_error = str(e)
-            print(f"[AI] Model {model_name} failed: {last_error}")
-            if "exhausted" in last_error.lower() or "quota" in last_error.lower() or "429" in last_error:
+            print(f"[AI] Groq {model_name} failed: {last_error}")
+            if "rate_limit" in last_error.lower() or "429" in last_error or "exhausted" in last_error.lower():
                 continue # Try next model
             break # Non-quota error, don't retry
     
-    raise Exception(f"All AI models failed. Last error: {last_error}")
+    raise Exception(f"All Groq AI models failed. Last error: {last_error}")
 
 def score_resume_vs_job(resume_text: str, job_description: str) -> dict:
     """
