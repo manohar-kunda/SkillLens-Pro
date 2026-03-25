@@ -16,7 +16,7 @@ If asked something completely unrelated to careers or technology, politely redir
 
 /**
  * Call Groq API directly from Node.js — PRIMARY path for chat.
- * Uses llama3-70b-8192 for fast, intelligent responses.
+ * Uses llama-3.3-70b-versatile for fast, intelligent responses.
  */
 const callGroqDirect = async (message, history = []) => {
     const Groq = require('groq-sdk');
@@ -34,7 +34,7 @@ const callGroqDirect = async (message, history = []) => {
             ...formattedHistory,
             { role: 'user', content: message }
         ],
-        model: 'llama3-70b-8192',
+        model: 'llama-3.3-70b-versatile',
         temperature: 0.6,
         max_tokens: 1024,
     });
