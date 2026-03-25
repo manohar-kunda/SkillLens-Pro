@@ -372,34 +372,39 @@ const getInDepthCurriculum = async (req, res) => {
 };
 
 const getJobSuggestions = async (req, res) => {
+    const { q } = req.query;
+    if (!q) return res.json({ suggestions: [] });
+
+    const query = q.trim().toLowerCase();
+
+    // CHECK CACHE
+    const cached = suggestionCache.get(query);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return res.json({ suggestions: cached.data });
+    }
+
     try {
-        const { q } = req.query;
-        if (!q) return res.json({ suggestions: [] });
+        // 1. Pull from DB (admin-curated roles take priority)
+        const [dbRoles] = await pool.query(
+            'SELECT title FROM job_roles WHERE LOWER(title) LIKE ? ORDER BY title ASC LIMIT 15',
+            [`%${query}%`]
+        );
+        const dbSuggestions = dbRoles.map(r => r.title);
 
-        const query = q.trim().toLowerCase();
-        
-        // CHECK CACHE
-        const cached = suggestionCache.get(query);
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-            return res.json({ suggestions: cached.data });
-        }
+        // 2. Merge with static suggestions
+        const staticSuggestions = getStaticSuggestions(query);
+        const dbLower = new Set(dbSuggestions.map(s => s.toLowerCase()));
+        const unique = [
+            ...dbSuggestions,
+            ...staticSuggestions.filter(s => !dbLower.has(s.toLowerCase()))
+        ].slice(0, 8);
 
-        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
-        const aiRes = await axios.get(`${aiServiceUrl}/api/job-suggestions?q=${encodeURIComponent(q)}`, { timeout: 3000 });
-        const suggestions = aiRes.data.suggestions || [];
-        
         // SAVE CACHE
-        suggestionCache.set(query, {
-            timestamp: Date.now(),
-            data: suggestions
-        });
-
-        res.json({ suggestions });
+        suggestionCache.set(query, { timestamp: Date.now(), data: unique });
+        res.json({ suggestions: unique });
     } catch (error) {
         console.error('Job Suggestions Error:', error.message);
-        // Fallback to static role suggestions when Python AI is unavailable
-        const staticSuggestions = getStaticSuggestions(query);
-        res.json({ suggestions: staticSuggestions });
+        res.json({ suggestions: getStaticSuggestions(query) });
     }
 };
 

@@ -54,8 +54,52 @@ const addJobRole = async (req, res) => {
   }
 };
 
+// @desc    Delete a user
+// @route   DELETE /api/admin/users/:id
+// @access  Private/Admin
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Admin deleteUser Error:', error);
+    res.status(500).json({ message: 'Server error deleting user' });
+  }
+};
+
+// @desc    Get all job roles
+// @route   GET /api/admin/job-roles
+// @access  Private/Admin
+const getJobRoles = async (req, res) => {
+  try {
+    const [roles] = await pool.query('SELECT * FROM job_roles ORDER BY title ASC');
+    res.json(roles);
+  } catch (error) {
+    console.error('Admin getJobRoles Error:', error);
+    res.status(500).json({ message: 'Server error retrieving job roles' });
+  }
+};
+
+// @desc    Delete a job role
+// @route   DELETE /api/admin/job-roles/:id
+// @access  Private/Admin
+const deleteJobRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM job_roles WHERE id = ?', [id]);
+    res.json({ message: 'Job role deleted successfully' });
+  } catch (error) {
+    console.error('Admin deleteJobRole Error:', error);
+    res.status(500).json({ message: 'Server error deleting job role' });
+  }
+};
+
 module.exports = {
     getUsers,
     getStats,
-    addJobRole
+    addJobRole,
+    deleteUser,
+    getJobRoles,
+    deleteJobRole
 };
