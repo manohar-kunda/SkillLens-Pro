@@ -27,9 +27,14 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
-  // Silent ping on primary load to wake up Render backend from cold-start
+  // Silently wake up BOTH Render backend services on app load
+  // This prevents the 30-60s cold-start delay when users try to login/use AI
   React.useEffect(() => {
+    const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || '';
     api.get('/health').catch(() => {});
+    if (AI_SERVICE_URL) {
+      fetch(`${AI_SERVICE_URL}/health`).catch(() => {});
+    }
   }, []);
 
   return (

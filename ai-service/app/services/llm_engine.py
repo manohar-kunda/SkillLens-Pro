@@ -20,31 +20,37 @@ MODEL_FALLBACKS = [
 
 def safe_generate_content(prompt: str, response_mime_type: str = 'application/json'):
     last_error = ""
+    want_json = (response_mime_type == 'application/json')
+    system_prompt = (
+        "You are a strict JSON generator. Return ONLY valid JSON. No markdown, no code fences, no extra text."
+        if want_json else
+        "You are SkillLens AI, a helpful career development mentor. Be concise and professional."
+    )
+
     for model_name in MODEL_FALLBACKS:
         try:
             print(f"[AI] Attempting generation with Groq {model_name}...")
-            
-            response_format = {"type": "json_object"} if response_mime_type == 'application/json' else None
-            system_prompt = "You are a strict data-generator. You MUST return ONLY valid JSON format. Do not write markdown blocks like ```json. Output raw JSON ONLY." if response_format else "You are a helpful expert assistant."
-            
-            chat_completion = client.chat.completions.create(
-                messages=[
+
+            # Build kwargs conditionally — never pass response_format=None to Groq
+            create_kwargs = {
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                model=model_name,
-                response_format=response_format,
-                temperature=0.6,
-                max_tokens=2048
-            )
+                "model": model_name,
+                "temperature": 0.6,
+                "max_tokens": 2048
+            }
+            if want_json:
+                create_kwargs["response_format"] = {"type": "json_object"}
+
+            chat_completion = client.chat.completions.create(**create_kwargs)
             return chat_completion.choices[0].message.content
         except Exception as e:
             last_error = str(e)
             print(f"[AI] Groq {model_name} failed: {last_error}")
-            if "rate_limit" in last_error.lower() or "429" in last_error or "exhausted" in last_error.lower():
-                continue # Try next model
-            break # Non-quota error, don't retry
-    
+            continue  # Always try next model
+
     raise Exception(f"All Groq AI models failed. Last error: {last_error}")
 
 def score_resume_vs_job(resume_text: str, job_description: str) -> dict:
