@@ -208,17 +208,17 @@ const Profile = () => {
                                 placeholder="https://linkedin.com/in/..."
                             />
                         </div>
-                        <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', padding: '1rem' }}>Commit Changes</button>
+                        <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', padding: '1rem' }}>Save</button>
                     </form>
                 ) : (
                     <div style={{ display: 'grid', gap: '2rem' }}>
                         <div style={infoRow}>
                             <span style={infoLabel}>Primary Email</span>
-                            <span style={infoValue}>{profile?.email}</span>
+                            <span style={infoValue}>{user?.email || profile?.email}</span>
                         </div>
                         <div style={infoRow}>
-                            <span style={infoLabel}>Legal Name</span>
-                            <span style={infoValue}>{profile?.first_name} {profile?.last_name || '(Not Specified)'}</span>
+                            <span style={infoLabel}>Full Name</span>
+                            <span style={infoValue}>{profile?.name}</span>
                         </div>
                         <div style={infoRow}>
                             <span style={infoLabel}>Github Ecosystem</span>

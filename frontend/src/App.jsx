@@ -14,6 +14,7 @@ import QuizList from './pages/QuizList';
 import ResumeBuilder from './pages/ResumeBuilder';
 import Navbar from './components/Navbar';
 import ChatAssistant from './components/ChatAssistant';
+import { api } from './services/authService';
 
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -26,6 +27,11 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
+  // Silent ping on primary load to wake up Render backend from cold-start
+  React.useEffect(() => {
+    api.get('/health').catch(() => {});
+  }, []);
+
   return (
     <AuthProvider>
       <ThemeProvider>
