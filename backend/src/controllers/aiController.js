@@ -2,7 +2,7 @@ const axios = require("axios");
 const axiosWithRetry = require('../utils/axiosWithRetry');
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 
-// SkillLens AI system prompt for direct Gemini fallback
+// SkillLens AI system prompt
 const SYSTEM_PROMPT = `You are SkillLens AI Mentor, a professional career development assistant specializing in technology careers.
 You help users with:
 - Career roadmap planning and skill gap analysis
@@ -15,14 +15,14 @@ Keep responses concise, professional, and actionable. Focus on career and techno
 If asked something completely unrelated to careers or technology, politely redirect to career topics.`;
 
 /**
- * Call Groq API directly from Node.js as a fallback.
- * Used when the Python AI microservice is unavailable (e.g., Render cold-start 502).
+ * Call Groq API directly from Node.js — PRIMARY path for chat.
+ * Uses llama3-70b-8192 for fast, intelligent responses.
  */
 const callGroqDirect = async (message, history = []) => {
     const Groq = require('groq-sdk');
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    // Convert history to Groq's format
+    // Convert history to Groq's OpenAI-compatible format
     const formattedHistory = (history || []).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content || msg.text || ''
@@ -49,27 +49,25 @@ exports.chatWithAI = async (req, res) => {
         return res.status(400).json({ error: 'Message is required.' });
     }
 
-    // --- TIER 1: Try Python AI Microservice ---
+    // --- TIER 1: Direct Groq API call (fastest & most reliable) ---
+    if (process.env.GROQ_API_KEY) {
+        try {
+            const reply = await callGroqDirect(message, history);
+            return res.json({ reply });
+        } catch (groqErr) {
+            console.warn('[AI Chat] Direct Groq call failed, falling back to Python service:', groqErr.message);
+        }
+    }
+
+    // --- TIER 2: Python AI Microservice ---
     try {
         const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/chat`, {
             message,
             history
-        }, { timeout: 30000 }), 2, 3000); // 2 retries, 3s delay (faster for chat)
-
+        }, { timeout: 20000 }), 1, 2000);
         return res.json({ reply: aiResponse.data.reply });
     } catch (pythonErr) {
-        console.warn('[AI Chat] Python service unavailable, falling back to direct Groq call:', pythonErr.message);
-    }
-
-    // --- TIER 2: Call Groq API directly from Node.js ---
-    try {
-        if (!process.env.GROQ_API_KEY) {
-            throw new Error('GROQ_API_KEY not configured in backend.');
-        }
-        const reply = await callGroqDirect(message, history);
-        return res.json({ reply });
-    } catch (groqErr) {
-        console.error('[AI Chat] Direct Groq call also failed:', groqErr.message);
+        console.error('[AI Chat] Python service also failed:', pythonErr.message);
     }
 
     // --- TIER 3: Static professional fallback ---
