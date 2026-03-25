@@ -88,11 +88,12 @@ def generate_skills_for_role(role_name: str) -> list:
     if not client:
         return []
 
-    prompt = f"List the top 10 most relevant technical skills for a successful '{role_name}'. Return ONLY a JSON array of strings."
+    prompt = f"List the top 10 most relevant technical skills for a successful '{role_name}'. Return ONLY a JSON object like: {{\\\"data\\\": [\\\"skill1\\\", \\\"skill2\\\"]}}"
     
     try:
         response_text = safe_generate_content(prompt)
-        skills = json.loads(response_text)
+        parsed = json.loads(response_text)
+        skills = parsed.get("data", []) if isinstance(parsed, dict) else []
         return skills if isinstance(skills, list) else []
     except Exception as e:
         print(f"[AI] Error generating skills: {str(e)}")
@@ -105,12 +106,13 @@ def get_job_role_suggestions(partial_text: str) -> list:
     if not client:
         return []
 
-    prompt = f"Based on '{partial_text}', suggest exactly 5 popular IT job roles. Return ONLY a JSON array of strings."
+    prompt = f"Based on '{partial_text}', suggest exactly 5 popular IT job roles. Return ONLY a JSON object like: {{\\\"data\\\": [\\\"role1\\\", \\\"role2\\\"]}}"
     
     try:
         response_text = safe_generate_content(prompt)
         print(f"[AI] Raw Suggestions Response: {response_text}")
-        suggestions = json.loads(response_text)
+        parsed = json.loads(response_text)
+        suggestions = parsed.get("data", []) if isinstance(parsed, dict) else []
         return suggestions if isinstance(suggestions, list) else []
     except Exception as e:
         print(f"[AI] Error getting suggestions: {str(e)}")
@@ -275,11 +277,12 @@ def generate_open_questions(role: str, difficulty: str = 'medium') -> list:
     """
     Generates 3 open-ended technical questions for a voice interview.
     """
-    prompt = f"Generate 3 open-ended technical interview questions for a '{role}' at '{difficulty}' level. Return ONLY a JSON array of strings."
+    prompt = f"Generate 3 open-ended technical interview questions for a '{role}' at '{difficulty}' level. Return ONLY a JSON object like: {{\\\"questions\\\": [\\\"q1\\\", \\\"q2\\\", \\\"q3\\\"]}}"
     
     try:
         response_text = safe_generate_content(prompt)
-        questions = json.loads(response_text)
+        parsed = json.loads(response_text)
+        questions = parsed.get("questions", []) if isinstance(parsed, dict) else []
         return questions if isinstance(questions, list) else []
     except Exception as e:
         print(f"[AI] Error generating questions: {str(e)}")
