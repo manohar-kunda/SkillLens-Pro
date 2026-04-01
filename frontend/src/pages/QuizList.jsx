@@ -66,7 +66,7 @@ const QuizList = () => {
             fontSize: '0.8rem', textTransform: 'uppercase', display: 'block', marginBottom: '1rem' 
         }}>PROVING GROUNDS</span>
         <h1 style={{ fontSize: '3.5rem', marginBottom: '1.5rem', letterSpacing: '-0.03em' }}>
-            Assessment Center
+            Quizzes
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '1.25rem', maxWidth: '700px', margin: '0 auto' }}>
             Validate your technical proficiency through high-fidelity simulations. Select a domain to begin your certification journey.
