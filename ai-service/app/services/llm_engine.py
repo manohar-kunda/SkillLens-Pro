@@ -388,4 +388,4 @@ def evaluate_voice_answer(question: str, user_answer_transcript: str) -> dict:
         elif word_count < 30:
             return {"score": 6, "feedback": "Good start, but could use more technical specifics and examples.", "is_accurate": True}
         else:
-            return {"score": 8, "feedback": "Comprehensive answer with good detail. Keep it up!", "is_accurate": True}ccurate": True}
+            return {"score": 8, "feedback": "Comprehensive answer with good detail. Keep it up!", "is_accurate": True}
