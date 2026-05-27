@@ -1,9 +1,38 @@
+"""
+-------------------------------------------------------
+File: analyzer.py
+Purpose: Evaluates formatting quality of uploaded resumes and computes
+relational skill-overlap matches for fallback scenarios.
+
+Responsibilities:
+- Runs checks on structural presence (Education, Projects, Experience sections)
+- Scores length/communication quality of resume text
+- Conducts local fallback scoring arithmetic when LLMs are disconnected
+- Extracts stop-words and evaluates token overlaps
+
+Dependencies:
+- re
+- app.services.static_kb (STATIC_ROADMAPS)
+
+Author: Manohar Kunda
+-------------------------------------------------------
+"""
+
 import re
 
 def analyze_resume_quality(text: str, extracted_skills: list, word_count: int) -> dict:
     """
-    Evaluates the quality of a resume and generates a score out of 100.
-    Checks for presence of standard sections: Education, Projects, Experience.
+    Evaluates basic resume formatting structure and communication density to score it out of 100.
+
+    Checks:
+    - 30pts structural presence (Education, Projects, Experience)
+    - 20pts word count volume
+    - 50pts technical skill diversity
+
+    :param text: Raw text block of the resume
+    :param extracted_skills: List of extracted skill strings
+    :param word_count: Number of words in the resume
+    :return: A dict outlining quality score (0-100), feedback list, and category breakdown
     """
     text_lower = text.lower()
     score = 100
@@ -59,7 +88,12 @@ def analyze_resume_quality(text: str, extracted_skills: list, word_count: int) -
 
 def calculate_fallback_score(resume_text: str, job_description: str) -> dict:
     """
-    Calculates a match score based on skill overlap using the static knowledge base.
+    Calculates overlap scores when LLM connectors are offline, comparing resume text against
+    known static job catalog roles or tokenized job requirement terms.
+
+    :param resume_text: User resume text
+    :param job_description: Target job requirements text
+    :return: A dict outlining score (0-100), matches array, and missing skills checklist
     """
     from app.services.static_kb import STATIC_ROADMAPS
 

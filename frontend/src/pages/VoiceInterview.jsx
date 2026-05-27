@@ -1,3 +1,28 @@
+/**
+ * -----------------------------------------------------------------------------
+ * File: VoiceInterview.jsx
+ * Component: React Page View Component
+ * Purpose: Provides a fully interactive, voice-driven mock interview simulation.
+ *          Integrates real-time AI speech-to-text transcriptions and granular 
+ *          conceptual evaluations matching natural oral answers.
+ *
+ * Responsibilities:
+ * - Render difficulty selection shields (Beginner, Professional, Expert).
+ * - Initialize HTML5 Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) 
+ *   to parse real-time audio input buffers into textual transcriptions.
+ * - Call the backend `/quizzes/ai-interview/questions` to retrieve customized LLM prompts.
+ * - Submit verbal responses to `/quizzes/ai-interview/evaluate` to get real-time scores (0-10) and feedback.
+ * - Calculate cumulative session metrics, rendering celebration confetti for passing scores (>=70%).
+ *
+ * Page Lifecycle Transitions ('step' state):
+ * 1. 'selection' : Users choose difficulty; initiates Axios question fetch.
+ * 2. 'interview' : Sequence loop rendering questions, voice transcription controls, and audio wave animations.
+ * 3. 'results'   : Compiles aggregate scores and review feedback cards.
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../services/authService';
@@ -11,12 +36,20 @@ import {
     ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
+/**
+ * AI Voice Interview page component.
+ *
+ * @returns {React.ReactElement|null} The active step element view layout, or null if redirecting.
+ */
 const VoiceInterview = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { isDarkMode } = useTheme();
     
+    // Extract selected career skill parameter from the router state
     const skill = location.state?.skill;
+    
+    // React State hooks driving layout sequences
     const [difficulty, setDifficulty] = useState(null);
     const [questions, setQuestions] = useState([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -27,16 +60,20 @@ const VoiceInterview = () => {
     const [step, setStep] = useState('selection'); // selection, interview, results
     const [showConfetti, setShowConfetti] = useState(false);
     
+    // Reference pointer for SpeechRecognition persistence across renders
     const recognitionRef = useRef(null);
+    
+    // Calculate running mock performance aggregate score
     const finalScore = evaluations.length > 0 
         ? Math.round(evaluations.reduce((acc, curr) => acc + curr.score, 0) / evaluations.length * 10)
         : 0;
 
+    // Redirect to Dashboard index if skill parameters are missing on navigation
     useEffect(() => {
         if (!skill) navigate('/dashboard');
     }, [skill, navigate]);
 
-    // Initialize Web Speech API
+    // Side-effect: Bootstraps the HTML5 SpeechRecognition API engine
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
@@ -44,6 +81,7 @@ const VoiceInterview = () => {
             recognitionRef.current.continuous = true;
             recognitionRef.current.interimResults = true;
             
+            // Appends spoken phrases to the active state transcript
             recognitionRef.current.onresult = (event) => {
                 let interimTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -66,6 +104,11 @@ const VoiceInterview = () => {
         }
     }, []);
 
+    /**
+     * Queries backend for customized question vectors and begins the simulation.
+     *
+     * @param {string} diff - Selected difficulty identifier ('Easy' | 'Medium' | 'Hard').
+     */
     const startInterview = async (diff) => {
         setDifficulty(diff);
         setLoading(true);
@@ -87,6 +130,9 @@ const VoiceInterview = () => {
         }
     };
 
+    /**
+     * Activates or halts the device microphone recording listeners.
+     */
     const toggleListening = () => {
         if (isListening) {
             recognitionRef.current.stop();
@@ -97,6 +143,10 @@ const VoiceInterview = () => {
         }
     };
 
+    /**
+     * Halts audio inputs, posts text transcripts to the LLM grading service,
+     * updates scores indices, and loads either the next prompt or final summaries.
+     */
     const handleNextQuestion = async () => {
         if (isListening) recognitionRef.current.stop();
         
@@ -126,6 +176,7 @@ const VoiceInterview = () => {
         }
     };
 
+    // Loader layout
     if (loading) return (
         <div className="container" style={{ textAlign: 'center', paddingTop: '10rem' }}>
             <div className="loader" style={{ margin: '0 auto' }}></div>
@@ -133,6 +184,7 @@ const VoiceInterview = () => {
         </div>
     );
 
+    // Tier 1: Challenge selection panel layout
     if (step === 'selection') return (
         <div className="container" style={{ padding: '4rem 2rem', maxWidth: '600px', margin: '0 auto' }}>
             <h2 className="animate-in">AI Voice Interview: <span style={{ color: 'var(--primary-color)' }}>{skill?.name}</span></h2>
@@ -153,6 +205,7 @@ const VoiceInterview = () => {
         </div>
     );
 
+    // Tier 2: Speaking session simulation layout
     if (step === 'interview') return (
         <div className="container" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -163,7 +216,7 @@ const VoiceInterview = () => {
             <div className="card animate-in" style={{ marginTop: '2rem', minHeight: '400px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '3rem' }}>
                 <h2 style={{ textAlign: 'center', marginBottom: '3rem' }}>"{questions[currentQuestionIndex]}"</h2>
                 
-                {/* AI Visualizer Mockup */}
+                {/* Speaking visual pulse animation */}
                 <div className={`ai-visualizer ${isListening ? 'active' : ''}`} style={{
                     width: '100px', height: '100px', borderRadius: '50%',
                     background: 'linear-gradient(45deg, var(--primary-color), var(--secondary-color))',
@@ -180,6 +233,7 @@ const VoiceInterview = () => {
                     )}
                 </div>
 
+                {/* Transcribing textual preview canvas */}
                 <div style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: 'var(--radius-md)', minHeight: '100px', marginBottom: '2rem', border: '1px solid var(--border-color)' }}>
                     <p style={{ color: transcript ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: transcript ? 'normal' : 'italic' }}>
                         {transcript || (isListening ? 'Listening to your brilliance...' : 'Click the microphone and start speaking your answer.')}
@@ -199,6 +253,7 @@ const VoiceInterview = () => {
         </div>
     );
 
+    // Tier 3: Performance feedback summaries dashboard layout
     if (step === 'results') return (
         <div className="container" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
             <Confetti active={showConfetti} />

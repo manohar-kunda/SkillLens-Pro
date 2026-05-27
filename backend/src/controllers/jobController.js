@@ -1,15 +1,41 @@
+/**
+ * -------------------------------------------------------
+ * File: jobController.js
+ * Purpose: Manages career discoverability, skill gap mappings,
+ * custom role roadmaps, and online resources scraping.
+ *
+ * Responsibilities:
+ * - Lists curated job roles registered in MySQL
+ * - Maps user skill gaps against target jobs
+ * - Coordinates parallel discovery of custom roles (Wikipedia API + FastAPI)
+ * - Implements in-memory caches to reduce LLM and web scrapers latency
+ * - Executes active HTML web-scraping to fetch YouTube links
+ *
+ * Dependencies:
+ * - db (MySQL Connection Pool)
+ * - axios
+ * - staticRoles (Static roadmaps fallbacks)
+ *
+ * Author: Manohar Kunda
+ * -------------------------------------------------------
+ */
+
 const pool = require('../config/db');
 const axios = require('axios');
 const { findStaticRoadmap, getStaticSuggestions } = require('../utils/staticRoles');
 
-// Intelligent Memory Cache System
-const roadmapCache = new Map(); // Key: roleName, Value: roadmapData
-const suggestionCache = new Map(); // Key: query, Value: suggestions
-const CACHE_TTL = 1000 * 60 * 60; // 1 hour TTL
+// Intelligent In-Memory Cache System to mitigate external API limits & latency
+const roadmapCache = new Map(); // Key: roleName, Value: { timestamp, data }
+const suggestionCache = new Map(); // Key: query, Value: { timestamp, data }
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour Time-To-Live (TTL)
 
-// @desc    Get all job roles
-// @route   GET /api/jobs
-// @access  Public or Private
+/**
+ * Retrieves all platform job roles.
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response returning job roles list
+ * @returns {Promise<void>}
+ */
 const getJobRoles = async (req, res) => {
     try {
         const [roles] = await pool.query('SELECT * FROM job_roles');
@@ -20,9 +46,20 @@ const getJobRoles = async (req, res) => {
     }
 };
 
-// @desc    Compare user skills against a target job role and calculate skill gaps
-// @route   POST /api/jobs/:id/analyze-gap
-// @access  Private
+/**
+ * Computes missing skills and matches user skills against a target curated job role.
+ *
+ * Traces the following database workflow:
+ * 1. Fetch user's skills via JOIN.
+ * 2. Fetch target job skills via JOIN.
+ * 3. Calculate intersections and differences.
+ * 4. Refresh historical gap tracking in database table.
+ * 5. Persistent-save missing skills, returning fit percentages.
+ *
+ * @param {Object} req - Express request with jobId in req.params
+ * @param {Object} res - Express response returning score breakdown and lists
+ * @returns {Promise<void>}
+ */
 const analyzeSkillGap = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -69,7 +106,7 @@ const analyzeSkillGap = async (req, res) => {
             [userId, jobRoleId]
         );
 
-        // 5. Save new skill gaps in DB
+        // 5. Save new skill gaps in DB using bulk insert
         if (missingSkills.length > 0) {
             const gapValues = missingSkills.map(ms => [userId, jobRoleId, ms.id]);
             await pool.query(
@@ -97,9 +134,20 @@ const analyzeSkillGap = async (req, res) => {
     }
 };
 
-// @desc    Dynamically generate a 5-step learning roadmap for a custom job role searched by the user
-// @route   POST /api/jobs/custom-roadmap
-// @access  Private
+/**
+ * Dynamically constructs learning roadmaps for custom career roles entered by the user.
+ * Combines direct database caches, concurrent Wikipedia descriptions scraping,
+ * and FastAPI skill-generation endpoints.
+ *
+ * Execution details:
+ * - Employs a cache check to protect system endpoints.
+ * - Spawns concurrent axios connections (FastAPI + Wikipedia) in parallel.
+ * - Normalizes and runs fuzzy matches (e.g. "Fullstack" == "Full Stack") to avoid duplicates.
+ *
+ * @param {Object} req - Express request holding custom roleName in req.body
+ * @param {Object} res - Express response returning dynamically structured roadmap payloads
+ * @returns {Promise<void>}
+ */
 const analyzeCustomRole = async (req, res) => {
     try {
         const { roleName } = req.body;
@@ -283,9 +331,15 @@ const analyzeCustomRole = async (req, res) => {
     }
 };
 
-// @desc    Dynamically generate the deep 5-step learning roadmap using web scraping
-// @route   GET /api/jobs/curriculum/:roleName
-// @access  Private
+/**
+ * Dynamically resolves 5-step learning resources for custom roles.
+ * Executes active HTML scraping on YouTube results to retrieve relevant tutorial URLs,
+ * and dynamically directs users to Roadmap.sh slug categories.
+ *
+ * @param {Object} req - Express request holding roleName in req.params
+ * @param {Object} res - Express response returning curriculum steps list
+ * @returns {Promise<void>}
+ */
 const getInDepthCurriculum = async (req, res) => {
     try {
         const { roleName } = req.params;
@@ -371,6 +425,15 @@ const getInDepthCurriculum = async (req, res) => {
     }
 };
 
+/**
+ * Serves autocomplete search job suggestions.
+ * Fetches admin-curated job roles from MySQL, merges with matching static suggestions,
+ * and maintains a dedicated suggestions cache map.
+ *
+ * @param {Object} req - Express request containing query 'q' in query parameters
+ * @param {Object} res - Express response returning suggestions string list
+ * @returns {Promise<void>}
+ */
 const getJobSuggestions = async (req, res) => {
     const { q } = req.query;
     if (!q) return res.json({ suggestions: [] });

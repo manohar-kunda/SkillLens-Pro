@@ -1,8 +1,39 @@
+/**
+ * -----------------------------------------------------------------------------
+ * File: resumeBuilderController.js
+ * Component: Backend MVC Controller
+ * Purpose: Manages user inputs and configuration details for the interactive 
+ *          Resume Builder module.
+ *
+ * Responsibilities:
+ * - Serialize and save structured resume sections (experience, education, projects, 
+ *   certifications, languages, and achievements) as JSON strings into the relational store.
+ * - Retrieve user-built resume profile segments and parse MySQL serialized JSON fields 
+ *   back to active Javascript arrays for immediate frontend UI rendering.
+ * - Check and handle updates (UPSERT logic: update if exists, insert if new).
+ *
+ * Database Table Utilized:
+ * - `resume_builder_info` (Contains user_id primary key, phone, address, and JSON columns)
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
+ */
+
 const pool = require('../config/db');
 
-// @desc    Save/Update resume builder info
-// @route   POST /api/resumes/builder
-// @access  Private
+/**
+ * Saves or updates structured candidate information in the database (UPSERT).
+ *
+ * Details:
+ * 1. Checks if a profile configuration already exists for the authenticated user ID.
+ * 2. Serializes nested array objects (experience, projects, education, certs, achievements) 
+ *    into secure JSON string segments.
+ * 3. Executes UPDATE if matching record is present, otherwise executes INSERT.
+ *
+ * @param {Object} req - Express request object containing parsed JSON body coordinates.
+ * @param {Object} res - Express response returning success status.
+ * @returns {Promise<void>}
+ */
 const saveResumeInfo = async (req, res) => {
     try {
         const { 
@@ -11,7 +42,7 @@ const saveResumeInfo = async (req, res) => {
         } = req.body;
         const userId = req.user.id;
 
-        // Check if info already exists for this user
+        // Perform existence lookup to determine insert vs update pathways
         const [existing] = await pool.query('SELECT id FROM resume_builder_info WHERE user_id = ?', [userId]);
 
         const queryParams = [
@@ -23,7 +54,7 @@ const saveResumeInfo = async (req, res) => {
         ];
 
         if (existing.length > 0) {
-            // Update
+            // Record exists: Perform UPDATE operation
             await pool.query(
                 `UPDATE resume_builder_info 
                  SET phone = ?, address = ?, summary = ?, experience = ?, education = ?, projects = ?, skills = ?, template_id = ?,
@@ -33,12 +64,12 @@ const saveResumeInfo = async (req, res) => {
             );
             res.json({ message: 'Resume information updated successfully' });
         } else {
-            // Insert
+            // New entry: Perform INSERT operation
             await pool.query(
                 `INSERT INTO resume_builder_info (
-                    user_id, phone, address, summary, experience, education, projects, skills, template_id,
-                    github_url, linkedin_url, portfolio_url, certifications, languages, achievements
-                )
+                     user_id, phone, address, summary, experience, education, projects, skills, template_id,
+                     github_url, linkedin_url, portfolio_url, certifications, languages, achievements
+                 )
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [userId, ...queryParams]
             );
@@ -50,19 +81,26 @@ const saveResumeInfo = async (req, res) => {
     }
 };
 
-// @desc    Get resume builder info
-// @route   GET /api/resumes/builder
-// @access  Private
+/**
+ * Retrieves the compiled builder configuration mapping for the authenticated user.
+ * De-serializes database JSON columns (experience, education, projects, skills, etc.)
+ * back to Javascript object format to ensure clean, structured state ingestion by React.
+ *
+ * @param {Object} req - Express request holding verified user credentials.
+ * @param {Object} res - Express response returning parsed data or empty payload.
+ * @returns {Promise<void>}
+ */
 const getResumeInfo = async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM resume_builder_info WHERE user_id = ?', [req.user.id]);
         
         if (rows.length === 0) {
-            return res.json({}); // Return empty object if no info found
+            return res.json({}); // Return clean empty structure to allow UI input defaults initialization
         }
 
         const data = rows[0];
-        // Parse JSON strings back to objects
+        
+        // Parse raw DB JSON string payloads safely back to high-fidelity Javascript objects
         res.json({
             ...data,
             experience: JSON.parse(data.experience || '[]'),

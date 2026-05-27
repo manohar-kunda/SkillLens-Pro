@@ -1,3 +1,23 @@
+/**
+ * -----------------------------------------------------------------------------
+ * File: App.jsx
+ * Component: React Root Layout & Client-Side Router
+ * Purpose: Anchors global state context wrapper providers and coordinates 
+ *          declarative routing pathways using `react-router-dom`.
+ *
+ * Responsibilities:
+ * - Mount and orchestrate `AuthProvider` and `ThemeProvider` globally.
+ * - Establish client-side single-page-application (SPA) navigation trees.
+ * - Enforce route guards (`ProtectedRoute`) redirecting unauthenticated users to `/login`.
+ * - Mitigate cold-start latency of hosting infrastructure (Render/Heroku free tiers) 
+ *   by firing concurrent silent background ping requests to backend services during bootstrap.
+ * - Implement smart UI overrides, hiding floating widgets (such as the AI ChatAssistant) 
+ *   on space-critical pages (like the multi-pane ResumeBuilder).
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
+ */
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
@@ -18,7 +38,14 @@ import { api } from './services/authService';
 
 import { ThemeProvider } from './context/ThemeContext';
 
-// Protected Route Wrapper
+/**
+ * Access guard component intercepting protected view allocations.
+ * Verifies if user profiles are present, redirecting unauthorized navigations to login blocks.
+ *
+ * @param {Object} props - React props.
+ * @param {React.ReactNode} props.children - Secured component tree node.
+ * @returns {React.ReactElement} Active layout or route redirection block.
+ */
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = React.useContext(AuthContext);
   if (loading) return <div>Loading...</div>;
@@ -26,9 +53,15 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+/**
+ * Main Application bootstrapper.
+ * Establishes context boundaries and triggers silent cold-start wakeups.
+ *
+ * @returns {React.ReactElement} Structured root context layouts.
+ */
 function App() {
-  // Silently wake up BOTH Render backend services on app load
-  // This prevents the 30-60s cold-start delay when users try to login/use AI
+  // Side-effect: Sends background pings to both Node.js and Python FastAPI health services
+  // This mitigates the typical 30-50s cold-start latency of free-tier hosting (Render)
   React.useEffect(() => {
     const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || '';
     api.get('/health').catch(() => {});
@@ -48,9 +81,17 @@ function App() {
   );
 }
 
+/**
+ * Secondary layout router component that consumes route parameters.
+ * Manages standard header inclusions and controls the float chat widgets displays.
+ *
+ * @returns {React.ReactElement} Sub-layout route switcher views.
+ */
 const AppContent = () => {
   const { pathname } = useLocation();
   const authRoutes = ['/login', '/register'];
+  
+  // Hide the AI floating assistant on layout-heavy panels to preserve visual canvas space
   const hideChat = pathname.startsWith('/resume-builder') || authRoutes.includes(pathname);
 
   return (

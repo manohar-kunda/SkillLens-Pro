@@ -1,3 +1,30 @@
+/**
+ * -----------------------------------------------------------------------------
+ * File: Navbar.jsx
+ * Component: React Global Navigation Header
+ * Purpose: Provides a responsive global navigation interface including user
+ *          dropdown panels, responsive hamburger drawers, and visual theme triggers.
+ *
+ * Responsibilities:
+ * - Read authenticated user details and active theme settings from contexts.
+ * - Render branding elements and high-level routing buttons.
+ * - Manage responsive mobile sidebar overlay drawers and scroll body locks.
+ * - Handle click-outside event listeners dismissing profile dropdown dialogs.
+ * - Intercept public routes (/login, /register) to hide header layouts.
+ *
+ * Hooks Utilized:
+ * - `useContext(AuthContext)`: Loads current session user data and logout triggers.
+ * - `useTheme()`: Reads color preference states and trigger switches.
+ * - `useNavigate()`: Handles declarative SPA location transitions.
+ * - `useLocation()`: Extracts the current path URL for styling highlights.
+ * - `useState()`: Drives mobile drawers and dropdowns visibility flags.
+ * - `useRef()`: Attaches reference coordinates to profile containers.
+ * - `useEffect()`: Registers event listeners and handles page side-effects.
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
+ */
+
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
@@ -14,22 +41,33 @@ import {
     XMarkIcon
 } from '@heroicons/react/24/outline';
 
-
+/**
+ * Global navigation header component.
+ *
+ * @returns {React.ReactElement|null} Navigation header element, or null if on an auth page.
+ */
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
     const { isDarkMode, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const { pathname } = useLocation();
+    
+    // UI Visibility States
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    
+    // DOM coordinate references for click-outside triggers
     const dropdownRef = useRef(null);
 
+    /**
+     * Executes session termination and redirects the user to the Login screen.
+     */
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    // Close dropdown when clicking outside
+    // Side-effect: Attaches event listeners to dismiss the profile dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -40,7 +78,7 @@ const Navbar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Prevent scroll + signal other elements when mobile menu is open
+    // Side-effect: Enforces body scroll locks when the mobile menu overlay is active
     useEffect(() => {
         if (isMobileMenuOpen) {
             document.body.style.overflow = 'hidden';
@@ -55,26 +93,32 @@ const Navbar = () => {
         };
     }, [isMobileMenuOpen]);
 
+    // Render Shield: Hide navigation layouts on public login and registration pages
     const authRoutes = ['/login', '/register'];
     if (!user || authRoutes.includes(pathname)) return null;
 
+    // Resolve profile avatar source: use uploaded avatar path or fall back to ui-avatars generator
     const profileImg = user.profile_pic ? `${BASE_URL}${user.profile_pic}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`;
 
     return (
         <nav className="nav-main">
             <div className="container nav-container">
+                {/* Brand Logo Container */}
                 <Link to="/dashboard" className="nav-logo">
                     <img src="/logo.png" alt="Skilllens Logo" style={{ height: '35px', marginRight: '10px' }} />
                     <span className="nav-logo-text">SkillLens</span>
                     <span className="nav-logo-dot">.</span>
                 </Link>
 
+                {/* Desktop Link Catalog */}
                 <div className="nav-links">
                     <Link to="/dashboard" className="nav-link">Dashboard</Link>
                     <Link to="/quizzes" className="nav-link">Quizzes</Link>
                 </div>
 
+                {/* Interface Control Section */}
                 <div className="nav-actions">
+                    {/* User Profile Dropdown Segment */}
                     <div className="nav-profile-section" ref={dropdownRef}>
                         <div className="nav-profile-trigger" onClick={() => setDropdownOpen(!dropdownOpen)}>
                             <span className="nav-username">{user.name}</span>
@@ -105,6 +149,7 @@ const Navbar = () => {
                         )}
                     </div>
 
+                    {/* Dark Mode Theme Toggle Trigger */}
                     <button 
                         className="theme-toggle-btn" 
                         onClick={toggleTheme}
@@ -125,12 +170,14 @@ const Navbar = () => {
                         {isDarkMode ? <SunIcon style={{ width: '1.5rem' }} /> : <MoonIcon style={{ width: '1.5rem' }} />}
                     </button>
 
+                    {/* Responsive Mobile Hamburger Trigger */}
                     <button className="nav-hamburger" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                         {isMobileMenuOpen ? <XMarkIcon style={{ width: '2rem' }} /> : <Bars3Icon style={{ width: '2rem' }} />}
                     </button>
                 </div>
             </div>
 
+            {/* Mobile Navigation Sidebar overlay drawer */}
             {isMobileMenuOpen && (
                 <div className="mobile-menu-overlay">
                     <Link to="/dashboard" className="mobile-menu-link" onClick={() => setIsMobileMenuOpen(false)}>Dashboard</Link>

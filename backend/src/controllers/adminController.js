@@ -1,8 +1,30 @@
+/**
+ * -------------------------------------------------------
+ * File: adminController.js
+ * Purpose: Handles all platform-wide administrative functions,
+ * including user management, role injection, and metric analytics.
+ *
+ * Responsibilities:
+ * - Gathers global platform stats (user counts, resumes, quizzes)
+ * - Queries and deletes user profiles
+ * - Manages target job role creation and deletions
+ *
+ * Dependencies:
+ * - db (MySQL Connection Pool)
+ *
+ * Author: Manohar Kunda
+ * -------------------------------------------------------
+ */
+
 const pool = require('../config/db');
 
-// @desc    Get all users
-// @route   GET /api/admin/users
-// @access  Private/Admin
+/**
+ * Retrieves all registered users in descending order of creation.
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response returning user list
+ * @returns {Promise<void>}
+ */
 const getUsers = async (req, res) => {
   try {
     const [users] = await pool.query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
@@ -13,9 +35,13 @@ const getUsers = async (req, res) => {
   }
 };
 
-// @desc    Get platform statistics
-// @route   GET /api/admin/stats
-// @access  Private/Admin
+/**
+ * Gathers aggregate platform metrics for display on the admin panel dashboard.
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response returning total counts
+ * @returns {Promise<void>}
+ */
 const getStats = async (req, res) => {
   try {
     const [[{ totalUsers }]] = await pool.query('SELECT COUNT(*) as totalUsers FROM users');
@@ -35,9 +61,13 @@ const getStats = async (req, res) => {
   }
 };
 
-// @desc    Add a new job role
-// @route   POST /api/admin/jobs
-// @access  Private/Admin
+/**
+ * Creates a new curated job role in the database.
+ *
+ * @param {Object} req - Express request containing title and description in req.body
+ * @param {Object} res - Express response returning success status and new role ID
+ * @returns {Promise<void>}
+ */
 const addJobRole = async (req, res) => {
   try {
     const { title, description } = req.body;
@@ -54,9 +84,13 @@ const addJobRole = async (req, res) => {
   }
 };
 
-// @desc    Delete a user
-// @route   DELETE /api/admin/users/:id
-// @access  Private/Admin
+/**
+ * Permanently deletes a user from the platform (cascading deletes and clearing foreign relationships).
+ *
+ * @param {Object} req - Express request with user ID in req.params
+ * @param {Object} res - Express response returning status
+ * @returns {Promise<void>}
+ */
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -68,9 +102,13 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// @desc    Get all job roles
-// @route   GET /api/admin/job-roles
-// @access  Private/Admin
+/**
+ * Retrieves all registered job roles sorted alphabetically by title.
+ *
+ * @param {Object} req - Express request
+ * @param {Object} res - Express response returning job roles list
+ * @returns {Promise<void>}
+ */
 const getJobRoles = async (req, res) => {
   try {
     const [roles] = await pool.query('SELECT * FROM job_roles ORDER BY title ASC');
@@ -81,9 +119,13 @@ const getJobRoles = async (req, res) => {
   }
 };
 
-// @desc    Delete a job role
-// @route   DELETE /api/admin/job-roles/:id
-// @access  Private/Admin
+/**
+ * Deletes a curated job role from the database, automatically purging gaps and mapping profiles.
+ *
+ * @param {Object} req - Express request with role ID in req.params
+ * @param {Object} res - Express response returning status
+ * @returns {Promise<void>}
+ */
 const deleteJobRole = async (req, res) => {
   try {
     const { id } = req.params;

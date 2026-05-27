@@ -1,3 +1,25 @@
+/**
+ * -------------------------------------------------------
+ * File: ChatAssistant.jsx
+ * Purpose: A global slide-out React chat helper enabling students
+ * to ask career and programming questions.
+ *
+ * Responsibilities:
+ * - Maintains a toggleable, overlay assistant chat window
+ * - Manages typing simulation loading states and automatic scroll down
+ * - Filters hello message history from being submitted to LLM memory contexts
+ * - Formats AI markdown responses, custom styling code snippets
+ *
+ * Dependencies:
+ * - react
+ * - react-markdown
+ * - @heroicons/react
+ * - authService (authorized Express Axios Client)
+ *
+ * Author: Manohar Kunda
+ * -------------------------------------------------------
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { api } from '../services/authService';
@@ -7,6 +29,9 @@ import {
     XMarkIcon
 } from '@heroicons/react/24/outline';
 
+/**
+ * Slide-out float button chat assistant UI.
+ */
 const ChatAssistant = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
@@ -43,6 +68,9 @@ const ChatAssistant = () => {
         };
     }, [isOpen]);
 
+    /**
+     * Submits active input to Express AI chat endpoint, appending the returned answer.
+     */
     const handleSend = async () => {
         if (!input.trim()) return;
 

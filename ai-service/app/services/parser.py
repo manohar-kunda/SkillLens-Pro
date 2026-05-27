@@ -1,3 +1,24 @@
+"""
+-------------------------------------------------------
+File: parser.py
+Purpose: Orchestrates raw file parsing, NLP token analysis, and
+technical skill keyword matching using spaCy.
+
+Responsibilities:
+- Decodes PDF or DOCX file binaries into raw text
+- Matches tokenized terms against the whitelisted KNOWN_SKILLS catalog
+- Filters out edge-case duplicates (like 'java script' vs 'java')
+- Invokes resume structural quality analyzer helpers
+
+Dependencies:
+- spacy
+- app.utils.text_extractor (extract_text)
+- app.services.analyzer (analyze_resume_quality)
+
+Author: Manohar Kunda
+-------------------------------------------------------
+"""
+
 import spacy
 from app.utils.text_extractor import extract_text
 from app.services.analyzer import analyze_resume_quality
@@ -24,7 +45,12 @@ KNOWN_SKILLS = {
 
 def parse_resume(file_content: bytes, filename: str) -> dict:
     """
-    Parses the raw file content and extracts skills using spaCy.
+    Parses the raw binary file content, extracts skill keywords via spaCy NLP,
+    and runs a quality evaluation report.
+
+    :param file_content: Binary bytes of the uploaded file
+    :param filename: Original uploaded file name (determines DOCX vs PDF parsing)
+    :return: A dict containing extracted skills array, word counts, and formatting score breakdown
     """
     # 1. Extract text
     raw_text = extract_text(file_content, filename)
@@ -70,7 +96,10 @@ def parse_resume(file_content: bytes, filename: str) -> dict:
 
 def extract_text_skills(raw_text: str) -> list:
     """
-    Parses generic raw text (e.g., from Wikipedia) and extracts skills using spaCy.
+    Parses a plain text block and extracts all whitelisted skill matches.
+
+    :param raw_text: Input string text block (e.g. scraped Wikipedia bio)
+    :return: A list of matching lowercased skill strings
     """
     doc = nlp(raw_text)
     extracted_skills = set()

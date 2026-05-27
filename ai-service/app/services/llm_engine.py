@@ -1,3 +1,25 @@
+"""
+-------------------------------------------------------
+File: llm_engine.py
+Purpose: Powers all Large Language Model integrations using the Groq API
+and implements robust fallback matching when APIs are unavailable.
+
+Responsibilities:
+- Coordinates API connections with Groq SDK
+- Provides automated model retry sequencing (llama-3.3 -> llama-3.1 -> mixtral)
+- Formats prompts for resume comparison matching, roadmaps, and quiz questions
+- Serves offline roadmap architectures and voice question banks on network failure
+
+Dependencies:
+- groq
+- dotenv
+- app.services.static_kb (STATIC_ROADMAPS, STATIC_QUESTIONS, STATIC_REPLIES)
+- app.services.analyzer (calculate_fallback_score)
+
+Author: Manohar Kunda
+-------------------------------------------------------
+"""
+
 import os
 import json
 import re
@@ -19,6 +41,15 @@ MODEL_FALLBACKS = [
 ]
 
 def safe_generate_content(prompt: str, response_mime_type: str = 'application/json'):
+    """
+    Safely generates content from the LLM, managing automatic model failover sequences
+    and JSON formatting constraints.
+
+    :param prompt: String prompt query
+    :param response_mime_type: Target return format (e.g. 'application/json')
+    :return: LLM text content response
+    :raises: Exception if all fallback models fail
+    """
     last_error = ""
     want_json = (response_mime_type == 'application/json')
     system_prompt = (
@@ -55,7 +86,11 @@ def safe_generate_content(prompt: str, response_mime_type: str = 'application/js
 
 def score_resume_vs_job(resume_text: str, job_description: str) -> dict:
     """
-    Uses Gemini to compare a resume against a job description.
+    Performs ATS overlap evaluations comparing a candidate resume against a target job role.
+
+    :param resume_text: Extracted plain text of user's resume
+    :param job_description: Target job description parameters
+    :return: A dict containing score (0-100), matches array, and missing skills checklist
     """
     if not client:
         return {"score": 0, "error": "API key not configured", "matches": [], "missing": [], "suggestions": []}
@@ -83,7 +118,10 @@ def score_resume_vs_job(resume_text: str, job_description: str) -> dict:
 
 def generate_skills_for_role(role_name: str) -> list:
     """
-    Generates a list of 10 technical skills for a job role.
+    Lists the top 10 most relevant technical skills for a specific job title.
+
+    :param role_name: Name of target job profile
+    :return: A list of 10 skill keywords
     """
     if not client:
         return []
@@ -101,7 +139,10 @@ def generate_skills_for_role(role_name: str) -> list:
 
 def get_job_role_suggestions(partial_text: str) -> list:
     """
-    Suggests 5 relevant job roles based on partial input.
+    Suggests 5 popular, relevant IT job roles matching a search substring.
+
+    :param partial_text: Substring query
+    :return: A list of 5 job role name suggestions
     """
     if not client:
         return []
@@ -131,7 +172,10 @@ def get_job_role_suggestions(partial_text: str) -> list:
 
 def generate_hierarchical_roadmap(role_name: str) -> dict:
     """
-    Generates a structured, professional Roadmap.sh-style guide for a job role.
+    Generates a structured, professional hierarchical learning roadmap for a role.
+
+    :param role_name: Name of target job profile
+    :return: A dict outlining categories, descriptions, and skill checklists
     """
     if not client:
         return _static_roadmap_lookup(role_name)
@@ -215,9 +259,14 @@ def _static_roadmap_lookup(role_name: str) -> dict:
             {"category": "Professional Skills", "skills": ["System Design & Architecture", "Code Review & Testing", "Agile & Scrum", "API Design & Integration"]}
         ]
     }
+
 def chat_with_ai(message: str, history: list = None) -> str:
     """
-    Handles general chat queries with model fallback resiliency.
+    Manages interactive chat conversations, defaulting to high-quality in-memory fallbacks.
+
+    :param message: The user-supplied input query
+    :param history: List of historical chat logs
+    :return: AI mentor's text reply (in markdown)
     """
     if not client:
         return "I'm sorry, my AI brain isn't connected right now."
@@ -276,6 +325,10 @@ def chat_with_ai(message: str, history: list = None) -> str:
 def generate_open_questions(role: str, difficulty: str = 'medium') -> list:
     """
     Generates 3 open-ended technical questions for a voice interview.
+
+    :param role: The target job title
+    :param difficulty: The difficulty level ('easy', 'medium', 'hard')
+    :return: A list of 3 questions
     """
     prompt = f"Generate 3 open-ended technical interview questions for a '{role}' at '{difficulty}' level. Return ONLY a JSON object like: {{\\\"questions\\\": [\\\"q1\\\", \\\"q2\\\", \\\"q3\\\"]}}"
     
@@ -303,7 +356,11 @@ def generate_open_questions(role: str, difficulty: str = 'medium') -> list:
 
 def evaluate_voice_answer(question: str, user_answer_transcript: str) -> dict:
     """
-    Evaluates a voice-to-text transcript against a technical question.
+    Grades a speech-to-text response transcript against a technical question.
+
+    :param question: The question being answered
+    :param user_answer_transcript: User's transcribed answer transcript
+    :return: A dict containing score (1-10), feedback text, and accuracy flag
     """
     prompt = f"""
     Evaluate this technical interview answer. 
@@ -331,4 +388,4 @@ def evaluate_voice_answer(question: str, user_answer_transcript: str) -> dict:
         elif word_count < 30:
             return {"score": 6, "feedback": "Good start, but could use more technical specifics and examples.", "is_accurate": True}
         else:
-            return {"score": 8, "feedback": "Comprehensive answer with good detail. Keep it up!", "is_accurate": True}
+            return {"score": 8, "feedback": "Comprehensive answer with good detail. Keep it up!", "is_accurate": True}ccurate": True}

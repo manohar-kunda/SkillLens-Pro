@@ -1,14 +1,48 @@
+/**
+ * -----------------------------------------------------------------------------
+ * File: recommendationController.js
+ * Component: Backend MVC Controller
+ * Purpose: Provides structured course recommendations and scores user resumes 
+ *          against specific target job profiles or custom career paths.
+ *
+ * Responsibilities:
+ * - Generate customized study roadmap cards for missing skills gaps.
+ * - Calculate detailed resume score alignment (mismatches and keywords match list).
+ * - Implement resilient offline fallbacks for local scoring using raw term-frequency intersections.
+ * - Map curated resources (such as freeCodeCamp, roadmap.sh) dynamically.
+ *
+ * External Dependencies:
+ * - db (MySQL Connection Pool promise instance)
+ * - axiosWithRetry (Utility carrying exponential retry wrappers)
+ * - Python AI Service (Evaluates advanced syntactic and semantic overlap via FastAPI)
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
+ */
+
 const pool = require('../config/db');
 const axios = require('axios');
 const axiosWithRetry = require('../utils/axiosWithRetry');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 
-// Helper function for local scoring fallback
+/**
+ * Computes a direct keyword overlap score between a resume and a job description.
+ * Utilized as a backup scoring mechanism when the Python AI service is offline.
+ *
+ * Algorithm details:
+ * 1. Tokenize inputs and discard common English structural stopwords.
+ * 2. Form unique sets of extracted tokens (lowercased).
+ * 3. Calculate intersections to identify matched and missing terms.
+ * 4. Derive percentage score relative to the job requirements.
+ *
+ * @param {string} resumeText - Full text compiled from user resume profile.
+ * @param {string} jobDescription - Combined title and responsibility text.
+ * @returns {Object} Object carrying score metrics, matched_skills, missing_skills, and explanations.
+ */
 const localScoreResume = (resumeText, jobDescription) => {
-    // Simple keyword extraction and overlap for fallback
     const extractKeywords = (text) => {
-        // A very basic tokenizer and filter for common words
+        // High-density filter mapping standard grammatical structural nouns
         const commonWords = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'for', 'with', 'is', 'are', 'was', 'were', 'and', 'or', 'to', 'of', 'from', 'by', 'as', 'it', 'its', 'he', 'she', 'we', 'they', 'you', 'your', 'my', 'our', 'their', 'this', 'that', 'these', 'those', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'not', 'no', 'yes', 'but', 'so', 'if', 'then', 'than', 'when', 'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose', 'can', 'could', 'will', 'would', 'should', 'may', 'might', 'must', 'get', 'got', 'go', 'went', 'gone', 'make', 'made', 'making', 'see', 'saw', 'seen', 'say', 'said', 'saying', 'come', 'came', 'coming', 'take', 'took', 'taken', 'know', 'knew', 'known', 'think', 'thought', 'thinking', 'find', 'found', 'finding', 'give', 'gave', 'given', 'tell', 'told', 'telling', 'work', 'worked', 'working', 'use', 'used', 'using', 'also', 'much', 'many', 'more', 'most', 'less', 'least', 'only', 'even', 'just', 'about', 'above', 'across', 'after', 'against', 'along', 'among', 'around', 'before', 'behind', 'below', 'beneath', 'beside', 'between', 'beyond', 'during', 'except', 'inside', 'into', 'like', 'near', 'off', 'onto', 'outside', 'over', 'past', 'since', 'through', 'under', 'until', 'up', 'upon', 'within', 'without', 'per', 'via', 'etc', 'e.g.', 'i.e.', 'vs', 'etc', 'etcetera', 'etc.']);
         return new Set(text.toLowerCase().split(/\W+/).filter(word => word.length > 2 && !commonWords.has(word)));
     };
@@ -29,7 +63,6 @@ const localScoreResume = (resumeText, jobDescription) => {
         }
     });
 
-    // A very basic score based on keyword overlap
     const score = jobKeywords.size > 0 ? (matchedCount / jobKeywords.size) * 100 : 0;
 
     return {
@@ -40,15 +73,21 @@ const localScoreResume = (resumeText, jobDescription) => {
     };
 };
 
-// @desc    Get learning recommendations for a user's missing skills for a specific job role
-// @route   GET /api/recommendations/:jobRoleId
-// @access  Private
+/**
+ * Compiles missing skill gap vectors for a user and constructs a chronological study roadmap.
+ * Pulls from a curated dataset of top-tier 100% free courses (e.g. FreeCodeCamp, Coursera, official MDN guides)
+ * and outputs dynamic YouTube search parameters as fallbacks for custom skill categories.
+ *
+ * @param {Object} req - Express request holding credentials and `jobRoleId` params.
+ * @param {Object} res - Express response returning the structured roadmap steps.
+ * @returns {Promise<void>}
+ */
 const getRecommendations = async (req, res) => {
     try {
         const userId = req.user.id;
         const jobRoleId = req.params.jobRoleId;
 
-        // 1. Fetch missing skills from skill_gaps table
+        // 1. Retrieve the designated skill gaps recorded during analysis from the DB
         const [gaps] = await pool.query(
             `SELECT sg.missing_skill_id, s.name as skill_name
              FROM skill_gaps sg
@@ -66,7 +105,7 @@ const getRecommendations = async (req, res) => {
 
         const missingSkillNames = gaps.map(g => g.skill_name.toLowerCase());
 
-        // 2. Define Authorized Role Roadmaps (Step-by-Step - 100% FREE RESOURCES)
+        // 2. Define Curated Reference Learning Roadmaps (Enterprise Framework Mappings)
         const roleRoadmaps = {
             'Web Developer': [
                 { skill: 'html', title: 'HTML5 Semantic Foundations (FreeCodeCamp)', url: 'https://www.freecodecamp.org/learn/2022/responsive-web-design/' },
@@ -101,17 +140,17 @@ const getRecommendations = async (req, res) => {
             ]
         };
 
-        // Get the role name
+        // Determine job title to filter reference roadmaps
         const [roleData] = await pool.query('SELECT title FROM job_roles WHERE id = ?', [jobRoleId]);
         const roleTitle = roleData.length > 0 ? roleData[0].title : 'Unknown Role';
 
-        // 3. Build the Structured User Roadmap
+        // 3. Assemble study roadmap blocks sequentially
         const masterRoadmap = roleRoadmaps[roleTitle] || [];
         
         let stepCounter = 1;
         const personalizedRoadmap = [];
 
-        // If a roadmap exists for this role, map missing skills Chronologically
+        // Check if matching roadmap coordinates exist
         if (masterRoadmap.length > 0) {
             masterRoadmap.forEach((mapObj) => {
                 if (missingSkillNames.includes(mapObj.skill)) {
@@ -124,7 +163,7 @@ const getRecommendations = async (req, res) => {
                 }
             });
             
-            // Catch missing skills that weren't in our hardcoded roadmap
+            // Check for edge-case skills missing from the hardcoded roadmap and add general study links
             missingSkillNames.forEach((targetSkill) => {
                 const alreadyMapped = personalizedRoadmap.find(pr => pr.skill.toLowerCase() === targetSkill);
                 if (!alreadyMapped) {
@@ -137,7 +176,7 @@ const getRecommendations = async (req, res) => {
                 }
             });
         } else {
-             // Fallback for custom roles: Just use YouTube resources
+             // Fallback dynamically generated study recommendations for customized jobs
              missingSkillNames.forEach((targetSkill) => {
                 personalizedRoadmap.push({
                     step: stepCounter++,
@@ -155,15 +194,27 @@ const getRecommendations = async (req, res) => {
             roadmap: personalizedRoadmap
         });
 
-    } catch (error) {
+     } catch (error) {
         console.error('Recommendations Error:', error);
         res.status(500).json({ message: 'Server error fetching learning recommendations' });
     }
 };
 
-// @desc    Score a user's resume against a specific job role
-// @route   POST /api/recommendations/score
-// @access  Private
+/**
+ * Computes the suitability metrics of a candidate's resume relative to a target career role.
+ *
+ * Pipeline Flow:
+ * 1. Resolves targeted job description details (using database records or user custom strings).
+ * 2. Fetches candidate resume information from:
+ *    - Structured JSON saved inside the platform's `resume_builder_info` table.
+ *    - Fallback: The text extraction of the most recently parsed physical PDF/DOCX file.
+ * 3. Calls the Python AI service `/api/score-resume` containing the payload coordinates.
+ * 4. In case of cold-starts or network blocks, executes a local keyterm overlap comparison.
+ *
+ * @param {Object} req - Express request holding credentials and query targets (jobRoleId, customRole).
+ * @param {Object} res - Express response returning the computed percentage score, matches, and recommendations.
+ * @returns {Promise<void>}
+ */
 const scoreResumeAgainstJob = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -177,7 +228,7 @@ const scoreResumeAgainstJob = async (req, res) => {
         let jobTitle;
 
         if (jobRoleId) {
-            // 1. Fetch Job Description from DB
+            // Resolve job specification from the MySQL catalog
             const [jobRows] = await pool.query('SELECT title, description FROM job_roles WHERE id = ?', [jobRoleId]);
             if (jobRows.length === 0) {
                 return res.status(404).json({ message: 'Job Role not found' });
@@ -185,12 +236,12 @@ const scoreResumeAgainstJob = async (req, res) => {
             jobTitle = jobRows[0].title;
             jobDescription = `${jobRows[0].title}. ${jobRows[0].description}`;
         } else {
-            // 2. Use Custom Role Title
+            // Compile custom specification description
             jobTitle = customRole;
             jobDescription = `Job Role: ${customRole}. Core skills and technologies required for a ${customRole}.`;
         }
 
-        // 3. Fetch User Resume Info — try Resume Builder first, then fall back to uploaded resume
+        // Fetch user resume data prioritizing structured builder info over file uploads
         let resumeText = '';
         const [resumeBuilderRows] = await pool.query('SELECT * FROM resume_builder_info WHERE user_id = ?', [userId]);
         
@@ -206,7 +257,7 @@ const scoreResumeAgainstJob = async (req, res) => {
                 Certifications: ${r.certifications || ''}
             `;
         } else {
-            // Fallback: use the most recently uploaded and analyzed resume
+            // Fallback: load text content parsed from the physical file upload
             const [uploadedRows] = await pool.query(
                 'SELECT parsed_data FROM resumes WHERE user_id = ? AND parsed_data IS NOT NULL ORDER BY upload_date DESC LIMIT 1',
                 [userId]
@@ -228,7 +279,7 @@ const scoreResumeAgainstJob = async (req, res) => {
             `;
         }
 
-        // 4. Call AI Service for scoring with retry; fall back to local scoring if unavailable
+        // Execute remote API connection or handle fallback in case of networking timeouts
         let scoreData;
         try {
             const aiResponse = await axiosWithRetry(() => axios.post(`${AI_SERVICE_URL}/api/score-resume`, {
@@ -238,7 +289,7 @@ const scoreResumeAgainstJob = async (req, res) => {
             scoreData = aiResponse.data;
         } catch (aiErr) {
             console.warn('[Score] Python AI unavailable, using local overlap scorer:', aiErr.message);
-            // Local fallback: keyword overlap between resume text and job description
+            // Dynamic local score mapping based on simple keyword sets intersections
             const resumeLower = resumeText.toLowerCase();
             const jobWords = jobDescription.toLowerCase()
                 .split(/[\s,;.\-()]+/)

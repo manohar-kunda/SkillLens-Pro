@@ -1,7 +1,36 @@
+/**
+ * -------------------------------------------------------
+ * File: authController.js
+ * Purpose: Handles authentication operations including login,
+ * registration, JWT token generation, and password validation.
+ *
+ * Responsibilities:
+ * - Directs user registration and email validation checks
+ * - Generates bcrypt salt hashes for securing passwords
+ * - Validates credentials during login procedures
+ * - Creates 30-day signed JWT tokens for authenticated sessions
+ *
+ * Dependencies:
+ * - bcryptjs
+ * - jsonwebtoken
+ * - db (MySQL Connection Pool)
+ *
+ * Author: Manohar Kunda
+ * -------------------------------------------------------
+ */
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
+/**
+ * Registers a new student or admin user.
+ *
+ * @param {Object} req - Express request object containing name, email, password, and role
+ * @param {Object} res - Express response object returning the signed token and registered profile
+ * @returns {Promise<void>}
+ * @throws {DatabaseError} - If database insertions fail
+ */
 const register = async (req, res) => {
   try {
     let { name, email, password, role } = req.body;
@@ -54,6 +83,14 @@ const register = async (req, res) => {
   }
 };
 
+/**
+ * Authenticates user credentials and returns a JWT session token.
+ *
+ * @param {Object} req - Express request object containing email and password
+ * @param {Object} res - Express response object returning JWT token and user profile
+ * @returns {Promise<void>}
+ * @throws {DatabaseError} - If user lookup fails
+ */
 const login = async (req, res) => {
   try {
     let { email, password } = req.body;

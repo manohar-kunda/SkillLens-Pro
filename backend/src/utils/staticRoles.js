@@ -1,9 +1,24 @@
 /**
- * staticRoles.js
- * A comprehensive static role knowledge base for Node.js backend.
- * Used as a reliable fallback when the Python AI service is unavailable.
+ * -----------------------------------------------------------------------------
+ * File: staticRoles.js
+ * Component: Backend Utility / Knowledge Base
+ * Purpose: A comprehensive local catalog of structured technical roles, 
+ *          curated career roadmaps, and career search suggestions.
+ *          Serves as a reliable, offline-ready fallback when the Python FastAPI 
+ *          service is down or network timeouts occur.
+ *
+ * Contents:
+ * - `STATIC_ROLES`: 10 core pre-mapped career tracks with details, 5-stage categorizations,
+ *   and specific skill directories (MERN, Frontend, Backend, DevOps, Data Science, etc.).
+ * - `ROLE_ALIASES`: Synonyms lookup map (e.g. MERN stack -> MERN Stack Developer, DS -> Data Scientist)
+ *   used to resolve fuzzy searches.
+ * - `ALL_ROLES`: Index of high-density suggestions to drive frontend search autocompletes.
+ *
+ * Author: Manohar Kunda
+ * -----------------------------------------------------------------------------
  */
 
+// Offline catalog database of career tracks
 const STATIC_ROLES = {
     'mern stack developer': {
         description: 'A MERN Stack Developer builds full-stack web applications using MongoDB, Express.js, React, and Node.js.',
@@ -107,7 +122,7 @@ const STATIC_ROLES = {
     },
 };
 
-// Role name aliases for fuzzy matching
+// Maps alternative names or abbreviations to direct static role keys
 const ROLE_ALIASES = {
     'mern': 'mern stack developer',
     'mern stack': 'mern stack developer',
@@ -126,7 +141,7 @@ const ROLE_ALIASES = {
     'cyber security analyst': 'cybersecurity analyst',
 };
 
-// All available roles for autocomplete suggestions
+// autocomplete master database
 const ALL_ROLES = [
     'MERN Stack Developer', 'Frontend Developer', 'Backend Developer',
     'Full Stack Developer', 'Data Scientist', 'DevOps Engineer',
@@ -138,19 +153,25 @@ const ALL_ROLES = [
 ];
 
 /**
- * Find a static roadmap for a role name using fuzzy matching.
- * Returns null if no match found.
+ * Searches the static catalog for a career title matching the input query.
+ * Evaluates:
+ * 1. Exact string matches (lowercased/trimmed).
+ * 2. Alias resolution mappings (e.g. "mern" -> "mern stack developer").
+ * 3. Substring inclusion lookups (e.g. "mern" matches any key containing or contained within the string).
+ *
+ * @param {string} roleName - Career name query from request bodies.
+ * @returns {Object|null} Matches object containing description and roadmap arrays, or null.
  */
 function findStaticRoadmap(roleName) {
     const lower = roleName.toLowerCase().trim();
     
-    // Direct match
+    // Direct matches
     if (STATIC_ROLES[lower]) return STATIC_ROLES[lower];
     
-    // Alias match
+    // Alias lookups matches
     if (ROLE_ALIASES[lower]) return STATIC_ROLES[ROLE_ALIASES[lower]];
     
-    // Partial match — check if any known role is contained in or contains the input
+    // Partial substring lookups matches
     for (const [key, value] of Object.entries(STATIC_ROLES)) {
         if (lower.includes(key) || key.includes(lower)) return value;
     }
@@ -159,7 +180,11 @@ function findStaticRoadmap(roleName) {
 }
 
 /**
- * Get job role suggestions matching a query string.
+ * Filters the autocomplete array index to locate up to 8 matched strings.
+ * Used to power quick feedback lists under frontend search input fields.
+ *
+ * @param {string} query - Keyword substring characters entered by user.
+ * @returns {Array<string>} Autocomplete result strings list.
  */
 function getStaticSuggestions(query) {
     const lower = query.toLowerCase();

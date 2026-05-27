@@ -1,3 +1,22 @@
+/**
+ * -------------------------------------------------------
+ * File: aiInterviewController.js
+ * Purpose: Handles AI-driven technical mock interview question
+ * generation and answer evaluation.
+ *
+ * Responsibilities:
+ * - Generates 3 open-ended career-role specific interview questions
+ * - Grades student answers based on speech transcript input
+ * - Falls back to static question banks and word-density algorithms when FastAPI is down
+ *
+ * Dependencies:
+ * - axios
+ * - axiosWithRetry
+ *
+ * Author: Manohar Kunda
+ * -------------------------------------------------------
+ */
+
 const axios = require('axios');
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8011';
 const axiosWithRetry = require('../utils/axiosWithRetry');
@@ -30,6 +49,10 @@ const STATIC_QUESTIONS = {
 /**
  * Fetches open-ended technical questions from the AI Service.
  * Falls back to static questions if the AI service is unavailable.
+ *
+ * @param {Object} req - Express request holding target role and difficulty
+ * @param {Object} res - Express response returning questions array
+ * @returns {Promise<void>}
  */
 exports.getAIInterviewQuestions = async (req, res) => {
     try {
@@ -57,6 +80,10 @@ exports.getAIInterviewQuestions = async (req, res) => {
 /**
  * Evaluates a voice interview answer using the AI Service.
  * Falls back to a basic score if the AI service is unavailable.
+ *
+ * @param {Object} req - Express request holding the question text and transcribed answer
+ * @param {Object} res - Express response returning score (0-10) and feedback string
+ * @returns {Promise<void>}
  */
 exports.evaluateAIInterviewAnswer = async (req, res) => {
     try {
@@ -74,7 +101,7 @@ exports.evaluateAIInterviewAnswer = async (req, res) => {
         res.status(200).json(response.data);
     } catch (error) {
         console.warn('[AI Interview] Evaluation fallback used:', error.message);
-        // Provide a basic static evaluation
+        // Provide a basic static evaluation based on transcript word count
         const wordCount = (answer || '').split(/\s+/).filter(Boolean).length;
         const score = Math.min(Math.max(Math.round(wordCount / 5), 3), 8);
         res.status(200).json({
